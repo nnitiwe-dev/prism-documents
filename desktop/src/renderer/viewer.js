@@ -6,6 +6,27 @@ import { el, clear, icon, toast } from './ui.js';
 import { loadDocument, baseName } from './pdfjs.js';
 import { addRecent } from './store.js';
 
+// Open a document in a modal overlay (used by the tray's preview button) so the
+// current tool page stays mounted underneath.
+export function openPreviewModal(filePath, name) {
+  const root = document.getElementById('modal-root');
+  const viewer = buildViewer(filePath, name);
+  const close = () => {
+    viewer.destroy();
+    scrim.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const head = el('div', { class: 'preview-head' }, [
+    el('span', { class: 'preview-title', text: name || baseName(filePath) }),
+    el('button', { class: 'icon-btn', title: 'Close', 'aria-label': 'Close', onClick: close }, [icon('ti-x')]),
+  ]);
+  const frame = el('div', { class: 'preview-frame' }, [head, viewer.element]);
+  const scrim = el('div', { class: 'modal-scrim', onClick: (e) => { if (e.target === scrim) close(); } }, [frame]);
+  root.appendChild(scrim);
+  document.addEventListener('keydown', onKey);
+}
+
 export function buildViewer(filePath, name) {
   const label = name || baseName(filePath);
   let scale = 1.1;

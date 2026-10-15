@@ -11,7 +11,14 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="titlebar"><span class="tb-dot"></span><span class="tb-title">PRISM Documents</span></div>
+    <div id="titlebar">
+      <svg class="brand-mark" width="22" height="20" viewBox="0 0 26 24" aria-hidden="true">
+        <path d="M13 2 L24 21 H2 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+        <line x1="4" y1="16" x2="25" y2="10" stroke="url(#brandgrad)" stroke-width="2.4" stroke-linecap="round"></line>
+        <defs><linearGradient id="brandgrad" x1="0" x2="1"><stop offset="0" stop-color="#2EC4B6"></stop><stop offset=".55" stop-color="#5B6CDF"></stop><stop offset="1" stop-color="#E8A33D"></stop></linearGradient></defs>
+      </svg>
+      <span class="tb-title">PRISM Documents</span>
+    </div>
     <div id="app">
       <nav id="activitybar" aria-label="Sections"></nav>
       <aside id="sidebar"></aside>

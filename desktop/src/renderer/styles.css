@@ -60,7 +60,7 @@ button { font-family: inherit; }
   -webkit-app-region: drag;
   user-select: none;
 }
-.tb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.brand-mark { color: var(--text-1); flex: none; }
 .tb-title { font-size: 12.5px; color: var(--text-1); font-weight: 500; letter-spacing: 0.02em; }
 
 #app {
@@ -326,3 +326,47 @@ select, .btn {
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .result { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-1); display: flex; align-items: center; gap: 12px; font-size: 13px; }
 .infobox { background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; white-space: pre-wrap; color: var(--text-1); font-size: 12.5px; }
+
+/* document preview cards */
+.tray-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.tdoc { width: 172px; display: flex; flex-direction: column; gap: 6px; }
+.tdoc[draggable="true"] { cursor: grab; }
+.tdoc.dragging { opacity: 0.4; }
+.tdoc-thumb { position: relative; height: 216px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-3); display: grid; place-items: center; }
+.tdoc.drop-target .tdoc-thumb { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tdoc-img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; }
+.tdoc-img.placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--text-2); }
+.tdoc-img.placeholder.loading { animation: pulse 1.2s ease-in-out infinite; }
+.tdoc-badge { position: absolute; top: 8px; left: 8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 500; display: grid; place-items: center; }
+.tdoc-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; opacity: 0; transition: opacity 0.12s; }
+.tdoc-thumb:hover .tdoc-actions, .tdoc:focus-within .tdoc-actions { opacity: 1; }
+.round-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-1); cursor: pointer; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+.round-btn:hover { background: var(--bg-3); color: var(--text-0); }
+.round-btn svg { width: 15px; height: 15px; }
+.tdoc-name { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tdoc-sub { font-size: 11px; color: var(--text-2); }
+.tdoc-sub.warn { color: var(--warn); }
+
+/* in-place preview modal */
+.preview-frame { width: 880px; max-width: 92vw; height: 84vh; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+.preview-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.preview-title { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preview-frame .viewer { flex: 1; min-height: 0; }
+
+/* visual page selector */
+.selector { margin-top: 16px; }
+.selector-bar { display: flex; align-items: center; gap: 10px; padding: 10px 0; flex-wrap: wrap; }
+.sel-summary { font-size: 13px; color: var(--text-1); font-weight: 500; }
+.selector-bar input { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 10px; color: var(--text-0); font-size: 12.5px; width: 180px; }
+.pagegrid-wrap { max-height: 480px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-1); padding: 14px; }
+.pagegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px; }
+.pg-cell { position: relative; cursor: pointer; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; transition: border-color 0.12s; }
+.pg-cell:hover { border-color: var(--accent); }
+.pg-thumb { display: grid; place-items: center; min-height: 148px; }
+.pg-thumb canvas { max-width: 100%; display: block; }
+.pg-num { position: absolute; bottom: 6px; left: 6px; font-size: 11px; background: rgba(0,0,0,0.6); color: #fff; padding: 1px 7px; border-radius: 10px; }
+.pg-mark { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--danger); color: #fff; display: none; place-items: center; }
+.pg-mark svg { width: 15px; height: 15px; }
+.pg-cell.removing { border-color: var(--danger); }
+.pg-cell.removing .pg-thumb { opacity: 0.4; }
+.pg-cell.removing .pg-mark { display: grid; }

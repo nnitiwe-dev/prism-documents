@@ -1,14 +1,31 @@
 // Generic tool workspace page. Clicking a tool opens one of these instead of a
-// chain of native dialogs: add documents, adjust options, then run.
+// chain of native dialogs: add documents, adjust options (or select pages
+// visually), then run.
 
 import { el, clear, icon, toast, infoModal } from './ui.js';
 import { createTray } from './tray.js';
+import { createPageGrid } from './pagegrid.js';
 import { dirName, baseName } from './pdfjs.js';
 
 const PDF_FILTER = [{ name: 'PDF', extensions: ['pdf'] }];
 
-function parsePages(str) {
-  return String(str || '').split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isInteger(n) && n > 0);
+function parseRanges(str, max) {
+  const out = new Set();
+  for (const part of String(str || '').split(',')) {
+    const p = part.trim();
+    if (!p) continue;
+    const m = /^(\d+)\s*-\s*(\d+)$/.exec(p);
+    if (m) {
+      let a = +m[1];
+      let b = +m[2];
+      if (a > b) [a, b] = [b, a];
+      for (let i = a; i <= b; i++) if (i >= 1 && (!max || i <= max)) out.add(i);
+    } else {
+      const n = parseInt(p, 10);
+      if (Number.isInteger(n) && n >= 1 && (!max || n <= max)) out.add(n);
+    }
+  }
+  return [...out].sort((a, b) => a - b);
 }
 
 async function api(path, body) {
@@ -17,18 +34,18 @@ async function api(path, body) {
   return r.data;
 }
 
-// Per-tool behavior. `output`: 'file' (save dialog), 'dir' (folder dialog), or 'none'.
+// output: 'file' (save dialog), 'dir' (folder dialog), or 'none'.
 const CONFIG = {
   merge: {
     multi: true, minFiles: 2, output: 'file', defaultName: 'merged.pdf',
-    run: async (items, _opts, output) => {
+    run: async (items, _o, output) => {
       const res = await api('/pdf/merge', { inputs: items.map((i) => i.path), output });
       return { message: `Merged ${items.length} files → ${res.pages} pages`, openPath: output };
     },
   },
   export: {
     multi: false, minFiles: 1, output: 'file', defaultName: 'copy.pdf',
-    run: async (items, _opts, output) => {
+    run: async (items, _o, output) => {
       const res = await api('/pdf/merge', { inputs: [items[0].path], output });
       return { message: `Saved a copy (${res.pages} pages)`, openPath: output };
     },
@@ -42,18 +59,17 @@ const CONFIG = {
       { name: 'pages', label: 'Pages to rotate (blank = all, e.g. 1,2,5)', type: 'text', placeholder: 'all' },
     ],
     run: async (items, opts, output) => {
-      const pages = opts.pages ? parsePages(opts.pages) : null;
+      const pages = opts.pages ? parseRanges(opts.pages) : null;
       await api('/pdf/rotate', { input: items[0].path, output, rotation: Number(opts.rotation), pages });
       return { message: 'Rotated and saved', openPath: output };
     },
   },
   'remove-pages': {
-    multi: false, minFiles: 1, output: 'file', defaultName: 'edited.pdf',
-    options: [{ name: 'pages', label: 'Pages to remove (e.g. 1,3,5)', type: 'text', placeholder: '1,3' }],
-    validate: (items, opts) => (parsePages(opts.pages).length ? null : 'Enter at least one page number'),
-    run: async (items, opts, output) => {
-      const res = await api('/pdf/delete-pages', { input: items[0].path, output, pages: parsePages(opts.pages) });
-      return { message: `Saved — ${res.pages} pages remain`, openPath: output };
+    multi: false, minFiles: 1, output: 'file', defaultName: 'edited.pdf', pageSelector: true,
+    run: async (items, _o, output, ctx) => {
+      const pages = ctx.pageGrid.getSelected();
+      const res = await api('/pdf/delete-pages', { input: items[0].path, output, pages });
+      return { message: `Removed ${pages.length} page(s) — ${res.pages} remain`, openPath: output };
     },
   },
   reorder: {
@@ -62,10 +78,10 @@ const CONFIG = {
     validate: (items, opts) => {
       const n = items[0]?.pages;
       if (n == null) return 'Still reading the document…';
-      return parsePages(opts.order).length === n ? null : `Enter all ${n} pages exactly once`;
+      return parseRanges(opts.order).length === n ? null : `Enter all ${n} pages exactly once`;
     },
     run: async (items, opts, output) => {
-      await api('/pdf/reorder', { input: items[0].path, output, order: parsePages(opts.order) });
+      await api('/pdf/reorder', { input: items[0].path, output, order: opts.order.split(',').map((s) => parseInt(s.trim(), 10)) });
       return { message: 'Reordered and saved', openPath: output };
     },
   },
@@ -106,7 +122,32 @@ export function buildToolPage(tool, { onBack, onOpenFile } = {}) {
     return { element, destroy: () => {} };
   }
 
-  const tray = createTray({ multi: cfg.multi, onChange: () => refresh() });
+  const runBtn = el('button', { class: 'btn primary', text: runLabel(cfg), onClick: run });
+  const result = el('div', { class: 'result hidden' });
+
+  // --- visual page selector (e.g. Remove pages) ---
+  let pageGrid = null;
+  let selectorSummary = null;
+  let selectorBlock = null;
+  if (cfg.pageSelector) {
+    pageGrid = createPageGrid({ onChange: (s) => onSelectionChange(s) });
+    selectorSummary = el('span', { class: 'sel-summary', text: 'Add a document to choose pages' });
+    const rangeInput = el('input', { type: 'text', placeholder: 'or type pages, e.g. 1,3-5' });
+    const applyBtn = el('button', { class: 'btn', text: 'Apply', onClick: () => {
+      const pages = parseRanges(rangeInput.value, pageGrid.getTotal());
+      pageGrid.setSelected(pages);
+    } });
+    const clearBtn = el('button', { class: 'btn', text: 'Clear', onClick: () => pageGrid.clearSelection() });
+    selectorBlock = el('div', { class: 'selector' }, [
+      el('div', { class: 'selector-bar' }, [selectorSummary, el('div', { class: 'runbar-spacer' }), rangeInput, applyBtn, clearBtn]),
+      pageGrid.element,
+    ]);
+  }
+
+  // --- tray ---
+  const tray = createTray({ multi: cfg.multi, onChange: onTrayChange });
+
+  // --- options ---
   const optionInputs = {};
   const optionEls = (cfg.options || []).map((f) => {
     let input;
@@ -116,13 +157,7 @@ export function buildToolPage(tool, { onBack, onOpenFile } = {}) {
     return el('label', { class: 'opt' }, [f.label, input]);
   });
 
-  const outName = cfg.output === 'file'
-    ? el('input', { type: 'text', class: 'out-name', value: cfg.defaultName })
-    : null;
-
-  const runBtn = el('button', { class: 'btn primary', text: runLabel(cfg), onClick: run });
-  const result = el('div', { class: 'result hidden' });
-
+  const outName = cfg.output === 'file' ? el('input', { type: 'text', class: 'out-name', value: cfg.defaultName }) : null;
   const runbar = el('div', { class: 'runbar' }, [
     cfg.output === 'file' ? el('label', { class: 'out-label' }, ['Save as', outName]) : null,
     el('div', { class: 'runbar-spacer' }),
@@ -135,6 +170,7 @@ export function buildToolPage(tool, { onBack, onOpenFile } = {}) {
       el('div', {}, [el('h1', { text: tool.name }), el('p', { text: tool.description })]),
     ]),
     tray.element,
+    selectorBlock,
     optionEls.length ? el('div', { class: 'options' }, optionEls) : null,
     runbar,
     result,
@@ -146,15 +182,38 @@ export function buildToolPage(tool, { onBack, onOpenFile } = {}) {
     return 'Save & run';
   }
 
+  function onTrayChange(items) {
+    if (pageGrid) {
+      if (items.length) pageGrid.load(items[0].path);
+      else pageGrid.reset();
+    }
+    refresh();
+  }
+
+  function onSelectionChange(s) {
+    if (selectorSummary) {
+      selectorSummary.textContent = s.total
+        ? `Removing ${s.selected.length} of ${s.total} page${s.total === 1 ? '' : 's'}`
+        : 'Add a document to choose pages';
+    }
+    refresh();
+  }
+
   function refresh() {
     const items = tray.getItems();
-    runBtn.disabled = items.length < cfg.minFiles;
+    let ok = items.length >= cfg.minFiles;
+    if (cfg.pageSelector) ok = ok && pageGrid.getSelected().length > 0;
+    runBtn.disabled = !ok;
   }
 
   async function run() {
     const items = tray.getItems();
     if (items.length < cfg.minFiles) {
       toast(`Add at least ${cfg.minFiles} ${cfg.minFiles === 1 ? 'document' : 'documents'}`, 'error');
+      return;
+    }
+    if (cfg.pageSelector && pageGrid.getSelected().length === 0) {
+      toast('Select at least one page to remove', 'error');
       return;
     }
     const opts = {};
@@ -180,7 +239,7 @@ export function buildToolPage(tool, { onBack, onOpenFile } = {}) {
     const prev = runBtn.textContent;
     runBtn.textContent = 'Working…';
     try {
-      const res = await cfg.run(items, opts, destination);
+      const res = await cfg.run(items, opts, destination, { pageGrid });
       showResult(res);
       toast(res.message, 'success');
     } catch (err) {
@@ -201,5 +260,5 @@ export function buildToolPage(tool, { onBack, onOpenFile } = {}) {
   }
 
   refresh();
-  return { element: page, destroy: () => tray.destroy() };
+  return { element: page, destroy: () => { tray.destroy(); if (pageGrid) pageGrid.destroy(); } };
 }

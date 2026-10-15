@@ -6,6 +6,7 @@ const { Sidecar } = require('./sidecar');
 const { registerIpc } = require('./ipc');
 
 const isDev = !app.isPackaged;
+const APP_ICON = path.join(__dirname, '..', '..', 'build', 'icon.png');
 let sidecar = null;
 let mainWindow = null;
 
@@ -16,6 +17,7 @@ async function createWindow() {
     minWidth: 940,
     minHeight: 600,
     backgroundColor: '#1e1e1e',
+    icon: APP_ICON,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
