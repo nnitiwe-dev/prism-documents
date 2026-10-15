@@ -2,7 +2,7 @@
 // RAM-bounded page rendering. Everything is torn down in destroy().
 
 import { el, clear, icon, toast } from './ui.js';
-import { loadDocument, baseName } from './pdfjs.js';
+import { loadDocument, getPdfjs, baseName } from './pdfjs.js';
 import { addRecent } from './store.js';
 
 // Open a document in a modal overlay (used by the tray's preview button) so the
@@ -30,9 +30,10 @@ export function buildViewer(filePath, name) {
   const label = name || baseName(filePath);
   let scale = 1.1;
   let doc = null;
+  let lib = null;
   let destroyed = false;
   let observer = null;
-  let pageObjs = []; // { index, wrapper, page, renderTask, rendered }
+  let pageObjs = []; // { index, wrapper, page, renderTask, rendered, textLayer }
 
   const navEl = el('aside', { class: 'viewer-nav hidden' });
   const navToggle = iconBtn('ti-list', 'Navigation', () => navEl.classList.toggle('hidden'));
@@ -115,10 +116,26 @@ export function buildViewer(filePath, name) {
     } finally {
       obj.renderTask = null;
     }
+    if (destroyed || !obj.rendered || !lib) return;
+    // Invisible, positioned text layer over the canvas → native selection,
+    // copy, and find-highlighting, exactly like a standard PDF reader.
+    try {
+      const textLayerDiv = el('div', { class: 'textLayer' });
+      obj.wrapper.appendChild(textLayerDiv);
+      obj.textLayer = new lib.TextLayer({
+        textContentSource: obj.page.streamTextContent({ includeMarkedContent: true, disableNormalization: true }),
+        container: textLayerDiv,
+        viewport,
+      });
+      await obj.textLayer.render();
+    } catch {
+      /* no text layer (e.g. scanned page) */
+    }
   }
 
   function unloadPage(obj) {
     if (obj.renderTask) { try { obj.renderTask.cancel(); } catch { /* noop */ } obj.renderTask = null; }
+    if (obj.textLayer) { try { obj.textLayer.cancel(); } catch { /* noop */ } obj.textLayer = null; }
     clear(obj.wrapper);
     obj.rendered = false;
   }
@@ -127,6 +144,7 @@ export function buildViewer(filePath, name) {
     const viewport = obj.page.getViewport({ scale });
     obj.wrapper.style.width = `${Math.ceil(viewport.width)}px`;
     obj.wrapper.style.height = `${Math.ceil(viewport.height)}px`;
+    obj.wrapper.style.setProperty('--scale-factor', String(scale));
   }
 
   function setScale(next) {
@@ -156,6 +174,7 @@ export function buildViewer(filePath, name) {
     try {
       doc = await loadDocument(filePath);
       if (destroyed) { doc.destroy(); return; }
+      lib = await getPdfjs();
       pageInfo.textContent = `${doc.numPages} pages`;
       for (let n = 1; n <= doc.numPages; n++) {
         const page = await doc.getPage(n);
