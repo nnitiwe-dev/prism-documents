@@ -31,11 +31,11 @@ extraResources:
 mac:
   target: [dmg, zip]
   category: public.app-category.productivity
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: PRISM-Documents-${version}-${arch}.${ext}
 
 win:
   target: [nsis]
-  artifactName: ${productName}-Setup-${version}.${ext}
+  artifactName: PRISM-Documents-Setup-${version}.${ext}
 
 nsis:
   oneClick: true
@@ -45,4 +45,4 @@ nsis:
 linux:
   target: [AppImage, deb]
   category: Office
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: PRISM-Documents-${version}-${arch}.${ext}

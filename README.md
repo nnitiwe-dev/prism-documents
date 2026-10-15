@@ -21,6 +21,25 @@ nothing is uploaded unless you explicitly opt in.
 This repository is **Phase 1**: a dependable PDF utility with the modular
 architecture the rest of the vision plugs into.
 
+## Download
+
+Grab the latest installer for your platform from the
+**[Releases page](https://github.com/nnitiwe-dev/prism-documents/releases/latest)**:
+
+| Platform | Installer |
+|----------|-----------|
+| macOS (Intel / Apple Silicon via Rosetta) | [Download .dmg](https://github.com/nnitiwe-dev/prism-documents/releases/latest/download/PRISM.Documents-0.1.0-x64.dmg) |
+| Windows | [Download .exe](https://github.com/nnitiwe-dev/prism-documents/releases/latest/download/PRISM.Documents-Setup-0.1.0.exe) |
+| Linux | [Download .AppImage](https://github.com/nnitiwe-dev/prism-documents/releases/latest/download/PRISM.Documents-0.1.0-x86_64.AppImage) |
+
+The app is **not yet code-signed**, so your OS will warn on first launch:
+
+- **macOS** — drag the app to `Applications`, then right-click it → **Open** (once). If it's still blocked, run `xattr -dr com.apple.quarantine "/Applications/PRISM Documents.app"`.
+- **Windows** — on the SmartScreen prompt, click **More info → Run anyway**.
+- **Linux** — make the AppImage executable: `chmod +x "PRISM Documents-0.1.0-x86_64.AppImage"`, then run it.
+
+First launch takes ~10s while the local engine unpacks. Everything runs on your machine; nothing is uploaded.
+
 ## Features (Phase 1)
 
 - 📄 **View** — open, read, zoom, navigate, and find text in PDFs
