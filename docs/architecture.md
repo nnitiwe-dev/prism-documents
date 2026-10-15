@@ -86,6 +86,35 @@ uvicorn/pdfplumber/pypdf but may need adjustment as backend deps grow; code
 signing/notarization (macOS) and an installer signing cert (Windows) are not yet
 configured and are required for friction-free installation on those platforms.
 
+## Updates (VS Code–style, no self-hosted server)
+
+Auto-update uses `electron-updater` with **GitHub Releases** as the feed
+(`publish:` in `electron-builder.yml`). Installed apps check on launch, download
+in the background, and install on restart — no reinstall. Because the Python
+backend is bundled inside the app, an app update replaces the backend too; there
+is no separate backend-update channel.
+
+- Wiring lives in `desktop/src/main/updater.js`, initialized only when packaged.
+- The real prerequisite is **code signing**: macOS requires a signed +
+  notarized app for Squirrel.Mac to apply updates; Windows works unsigned but
+  shows SmartScreen warnings until signed; Linux AppImage self-updates.
+- A self-hosted or S3 feed is only worth adding later for staged rollouts or
+  private channels.
+
+## UI model: tool workspaces, one live view
+
+Clicking a tool opens a dedicated **workspace page** (`toolpage.js`) rather than
+a chain of native dialogs: add documents (drag-and-drop or picker), see
+thumbnails + metadata, reorder by dragging, remove/replace, set the output name,
+then run. The document tray (`tray.js`) is reusable across tools.
+
+The shell mounts exactly **one** `{ element, destroy }` view at a time; mounting
+a new one calls the previous view's `destroy()`. This guarantees no orphan pages
+and frees resources on navigation. The viewer renders pages **lazily** via an
+`IntersectionObserver` — only pages near the viewport hold a canvas, and the
+PDF.js document is destroyed on exit — so large PDFs don't balloon RAM.
+Thumbnails render page 1 then destroy the document immediately.
+
 ## Roadmap hooks
 
 - **Models module (Phase 2):** `services/hardware.py` already returns a payload

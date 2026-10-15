@@ -60,6 +60,7 @@ class PdfInfo(BaseModel):
     path: str
     pages: int
     encrypted: bool
+    size_bytes: int = 0
     title: str | None = None
     author: str | None = None
 

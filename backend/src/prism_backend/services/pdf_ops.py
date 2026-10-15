@@ -28,10 +28,15 @@ def get_info(path: str) -> dict:
     except Exception:
         pages = 0
     meta = reader.metadata or {}
+    try:
+        size_bytes = p.stat().st_size
+    except OSError:
+        size_bytes = 0
     return {
         "path": str(p),
         "pages": pages,
         "encrypted": encrypted,
+        "size_bytes": size_bytes,
         "title": getattr(meta, "title", None),
         "author": getattr(meta, "author", None),
     }

@@ -24,6 +24,15 @@ async function createWindow() {
       sandbox: true,
     },
   });
+  // Surface renderer problems in the main-process log during development.
+  if (isDev) {
+    mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
+      if (level >= 2) console.error(`[renderer] ${message} (${source}:${line})`);
+    });
+    mainWindow.webContents.on('did-fail-load', (_e, code, desc) => console.error(`[renderer] load failed: ${desc} (${code})`));
+    mainWindow.webContents.on('render-process-gone', (_e, details) => console.error('[renderer] gone:', details.reason));
+  }
+
   await mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
 
@@ -35,6 +44,12 @@ app.whenReady().then(async () => {
   // renderer polls prism:status until it is ready.
   sidecar.start().catch((err) => console.error('Failed to start backend:', err.message));
   await createWindow();
+
+  // Auto-update (packaged builds only). No-op in dev.
+  if (!isDev) {
+    const { initUpdater } = require('./updater');
+    initUpdater();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

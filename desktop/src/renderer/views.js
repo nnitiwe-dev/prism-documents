@@ -1,25 +1,22 @@
-// View renderers for the main area: home, tools gallery, models, settings.
+// View builders. Each returns a detached { element, destroy } the shell mounts.
 
 import { el, clear, icon } from './ui.js';
 import { getRecent } from './store.js';
-import { runTool } from './ops.js';
 
-function toolCard(tool) {
+function toolCard(tool, onOpenTool) {
   const planned = tool.status === 'planned';
   const children = [
     el('div', { class: 'ic' }, [icon(tool.icon)]),
     el('h3', { text: tool.name }),
     el('p', { text: tool.description }),
   ];
-  if (tool.status !== 'ready') {
-    children.push(el('span', { class: `tag ${tool.status}`, text: tool.status }));
-  }
+  if (tool.status !== 'ready') children.push(el('span', { class: `tag ${tool.status}`, text: tool.status }));
   return el('div', {
     class: `tool-card${planned ? ' is-planned' : ''}`,
     role: 'button',
     tabindex: '0',
-    onClick: () => runTool(tool),
-    onKeydown: (e) => { if (e.key === 'Enter') runTool(tool); },
+    onClick: () => onOpenTool(tool),
+    onKeydown: (e) => { if (e.key === 'Enter') onOpenTool(tool); },
   }, children);
 }
 
@@ -31,16 +28,14 @@ function relTime(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
-export function renderHome(main, caps, onExplore) {
-  clear(main);
+export function buildHome(caps, { onExplore, onOpenFile, onOpenTool }) {
   const page = el('div', { class: 'page' });
   page.appendChild(el('div', { class: 'page-head' }, [
     el('div', {}, [el('h1', { text: 'Documents' }), el('p', { text: 'Open a document, or start with a tool below.' })]),
   ]));
 
-  // Tools carousel with a category filter + explore button
-  const tools = (caps?.tools) || [];
-  const categories = (caps?.categories) || [];
+  const tools = caps?.tools || [];
+  const categories = caps?.categories || [];
   const filter = el('select', {}, [
     el('option', { value: 'all', text: 'All categories' }),
     ...categories.map((c) => el('option', { value: c.id, text: c.label })),
@@ -51,7 +46,7 @@ export function renderHome(main, caps, onExplore) {
     const sel = filter.value;
     const list = tools.filter((t) => sel === 'all' || t.category === sel);
     if (!list.length) track.appendChild(el('div', { class: 'empty', text: 'No tools in this category yet.' }));
-    for (const t of list) track.appendChild(toolCard(t));
+    for (const t of list) track.appendChild(toolCard(t, onOpenTool));
   };
   filter.addEventListener('change', fill);
   fill();
@@ -62,7 +57,6 @@ export function renderHome(main, caps, onExplore) {
   ]));
   page.appendChild(el('div', { class: 'carousel' }, [track]));
 
-  // Recent documents
   page.appendChild(el('div', { class: 'section-bar' }, [el('h2', { text: 'Recent documents' })]));
   const recent = getRecent();
   if (!recent.length) {
@@ -70,10 +64,7 @@ export function renderHome(main, caps, onExplore) {
   } else {
     const grid = el('div', { class: 'recent-grid' });
     for (const r of recent) {
-      grid.appendChild(el('div', {
-        class: 'recent-card',
-        onClick: () => window.dispatchEvent(new CustomEvent('prism:open-file', { detail: { path: r.path, name: r.name } })),
-      }, [
+      grid.appendChild(el('div', { class: 'recent-card', onClick: () => onOpenFile(r.path, r.name) }, [
         el('div', { class: 'recent-thumb' }, [icon('ti-file-text')]),
         el('div', { class: 'recent-meta' }, [
           el('div', { class: 'name', text: r.name }),
@@ -83,11 +74,10 @@ export function renderHome(main, caps, onExplore) {
     }
     page.appendChild(grid);
   }
-  main.appendChild(page);
+  return { element: page, destroy: () => {} };
 }
 
-export function renderTools(main, caps, initialFilter = 'all') {
-  clear(main);
+export function buildTools(caps, { initialFilter = 'all', onOpenTool }) {
   const page = el('div', { class: 'page' });
   const filter = el('select', {}, [
     el('option', { value: 'all', text: 'All categories' }),
@@ -108,7 +98,7 @@ export function renderTools(main, caps, initialFilter = 'all') {
       if (!list.length) continue;
       const group = el('div', { class: 'cat-group' }, [el('h2', { text: cat.label })]);
       const grid = el('div', { class: 'grid' });
-      for (const t of list) grid.appendChild(toolCard(t));
+      for (const t of list) grid.appendChild(toolCard(t, onOpenTool));
       group.appendChild(grid);
       body.appendChild(group);
     }
@@ -116,51 +106,49 @@ export function renderTools(main, caps, initialFilter = 'all') {
   filter.addEventListener('change', render);
   render();
   page.appendChild(body);
-  main.appendChild(page);
+  return { element: page, destroy: () => {} };
 }
 
-export async function renderModels(main) {
-  clear(main);
+export function buildModels() {
   const page = el('div', { class: 'page' });
   page.appendChild(el('div', { class: 'page-head' }, [
     el('div', {}, [el('h1', { text: 'Models' }), el('p', { text: 'Your machine, and what it can run. On-device model recommendations arrive in a later phase.' })]),
   ]));
-  const box = el('pre', { class: '', text: 'Reading your hardware…' });
-  box.style.cssText = 'background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px;white-space:pre-wrap;color:var(--text-1);font-size:12.5px;';
+  const box = el('pre', { class: 'infobox', text: 'Reading your hardware…' });
   page.appendChild(box);
-  main.appendChild(page);
-  const r = await window.prism.api('/system/hardware');
-  if (r.ok) {
-    const h = r.data;
-    const gb = (b) => (b / 1024 ** 3).toFixed(1) + ' GB';
-    box.textContent = [
-      `OS:        ${h.os} ${h.os_version} (${h.arch})`,
-      `CPU:       ${h.cpu}`,
-      `Cores:     ${h.cpu_cores_physical} physical / ${h.cpu_cores_logical} logical`,
-      `Memory:    ${gb(h.ram_total_bytes)} total · ${gb(h.ram_available_bytes)} available`,
-      `Disk free: ${gb(h.disk_free_bytes)}`,
-      '',
-      'GPU detection and model compatibility scoring are planned for Phase 2.',
-    ].join('\n');
-  } else {
-    box.textContent = 'Could not read hardware (backend not ready).';
-  }
+  let cancelled = false;
+  window.prism.api('/system/hardware').then((r) => {
+    if (cancelled) return;
+    if (r.ok) {
+      const h = r.data;
+      const gb = (b) => (b / 1024 ** 3).toFixed(1) + ' GB';
+      box.textContent = [
+        `OS:        ${h.os} ${h.os_version} (${h.arch})`,
+        `CPU:       ${h.cpu}`,
+        `Cores:     ${h.cpu_cores_physical} physical / ${h.cpu_cores_logical} logical`,
+        `Memory:    ${gb(h.ram_total_bytes)} total · ${gb(h.ram_available_bytes)} available`,
+        `Disk free: ${gb(h.disk_free_bytes)}`,
+        '',
+        'GPU detection and model compatibility scoring are planned for Phase 2.',
+      ].join('\n');
+    } else {
+      box.textContent = 'Could not read hardware (backend not ready).';
+    }
+  });
+  return { element: page, destroy: () => { cancelled = true; } };
 }
 
-export function renderSettings(main, { ready, version }) {
-  clear(main);
+export function buildSettings({ ready, version }) {
   const page = el('div', { class: 'page' });
   page.appendChild(el('div', { class: 'page-head' }, [
     el('div', {}, [el('h1', { text: 'Settings' }), el('p', { text: 'PRISM Documents — by PRISM Data Studio' })]),
   ]));
-  const box = el('pre', { text: [
+  page.appendChild(el('pre', { class: 'infobox', text: [
     `Version:        ${version || '0.1.0'}`,
     `Backend status: ${ready ? 'connected (local)' : 'not connected'}`,
     `License:        MIT`,
     '',
     'All processing happens locally on this machine.',
-  ].join('\n') });
-  box.style.cssText = 'background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px;white-space:pre-wrap;color:var(--text-1);font-size:12.5px;';
-  page.appendChild(box);
-  main.appendChild(page);
+  ].join('\n') }));
+  return { element: page, destroy: () => {} };
 }

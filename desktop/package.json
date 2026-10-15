@@ -20,6 +20,7 @@
     "electron-builder": "^25.1.8"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "pdfjs-dist": "^4.8.69"
   }
 }

@@ -1,6 +1,6 @@
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 /**
  * The only surface the renderer can touch. No token, no backend URL, no Node
@@ -17,5 +17,15 @@ contextBridge.exposeInMainWorld('prism', {
   openDialog: (options) => ipcRenderer.invoke('prism:openDialog', options),
   saveDialog: (options) => ipcRenderer.invoke('prism:saveDialog', options),
   readFile: (filePath) => ipcRenderer.invoke('prism:readFile', filePath),
+  // Resolve the absolute path of a File dropped from the OS (Electron 33
+  // removed File.path; webUtils is the supported replacement and is available
+  // in sandboxed preloads).
+  pathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
   platform: process.platform,
 });

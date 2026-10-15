@@ -1,9 +1,12 @@
-// Shell controller: activity bar, sidebar, routing, status bar, events.
+// Shell controller: activity bar, sidebar, a mount/destroy view host (no orphan
+// pages, resources freed on navigation), status bar, and event routing.
 
 import { el, clear, icon } from './ui.js';
 import { getRecent } from './store.js';
-import { renderHome, renderTools, renderModels, renderSettings } from './views.js';
-import { openViewer } from './viewer.js';
+import { buildHome, buildTools, buildModels, buildSettings } from './views.js';
+import { buildViewer } from './viewer.js';
+import { buildToolPage } from './toolpage.js';
+import { runTool } from './ops.js';
 import { initPalette } from './palette.js';
 
 const state = { caps: null, ready: false, view: 'documents', toolsFilter: 'all' };
@@ -22,6 +25,31 @@ const $status = document.getElementById('statusbar');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ---- view host: exactly one { element, destroy } mounted at a time ----
+let active = null;
+let activeKind = 'section';
+function mount(view, kind = 'section') {
+  if (active && active.destroy) active.destroy();
+  clear($main);
+  active = view;
+  activeKind = kind;
+  if (view) $main.appendChild(view.element);
+  $main.scrollTop = 0;
+}
+
+function handleTool(tool) {
+  if (tool.status === 'planned' || tool.id === 'view') runTool(tool);
+  else openToolPage(tool);
+}
+
+function openToolPage(tool) {
+  mount(buildToolPage(tool, { onBack: () => navigate(state.view), onOpenFile: openFile }), 'tool');
+}
+
+function openFile(path, name) {
+  mount(buildViewer(path, name), 'viewer');
+}
+
 function renderActivityBar() {
   clear($act);
   for (const s of SECTIONS) {
@@ -39,15 +67,9 @@ function renderSidebar() {
   if (state.view === 'documents') {
     $side.appendChild(el('div', { class: 'side-title', text: 'Recent' }));
     const recent = getRecent();
-    if (!recent.length) {
-      $side.appendChild(el('div', { class: 'side-item', text: 'No documents yet' }));
-    } else {
-      for (const r of recent.slice(0, 12)) {
-        $side.appendChild(el('div', {
-          class: 'side-item',
-          onClick: () => openFile(r.path, r.name),
-        }, [icon('ti-file-text'), el('span', { text: r.name })]));
-      }
+    if (!recent.length) $side.appendChild(el('div', { class: 'side-item', text: 'No documents yet' }));
+    else for (const r of recent.slice(0, 12)) {
+      $side.appendChild(el('div', { class: 'side-item', onClick: () => openFile(r.path, r.name) }, [icon('ti-file-text'), el('span', { text: r.name })]));
     }
   } else if (state.view === 'tools') {
     $side.appendChild(el('div', { class: 'side-title', text: 'Categories' }));
@@ -55,7 +77,7 @@ function renderSidebar() {
     for (const c of cats) {
       $side.appendChild(el('div', {
         class: `side-item${state.toolsFilter === c.id ? ' active' : ''}`,
-        onClick: () => { state.toolsFilter = c.id; renderSidebar(); renderTools($main, state.caps, c.id); },
+        onClick: () => { state.toolsFilter = c.id; renderSidebar(); mount(buildTools(state.caps, { initialFilter: c.id, onOpenTool: handleTool }), 'section'); },
       }, [icon('ti-chevron-right'), el('span', { text: c.label })]));
     }
   } else if (state.view === 'models') {
@@ -78,28 +100,22 @@ function navigate(view) {
   state.view = view;
   renderActivityBar();
   renderSidebar();
-  if (view === 'documents') renderHome($main, state.caps, () => navigate('tools'));
-  else if (view === 'tools') renderTools($main, state.caps, state.toolsFilter);
-  else if (view === 'models') renderModels($main);
-  else renderSettings($main, { ready: state.ready, version: state.caps?.version });
-}
-
-function openFile(path, name) {
-  state.view = 'documents';
-  renderActivityBar();
-  renderSidebar();
-  openViewer($main, path, name);
+  if (view === 'documents') mount(buildHome(state.caps, { onExplore: () => navigate('tools'), onOpenFile: openFile, onOpenTool: handleTool }));
+  else if (view === 'tools') mount(buildTools(state.caps, { initialFilter: state.toolsFilter, onOpenTool: handleTool }));
+  else if (view === 'models') mount(buildModels());
+  else mount(buildSettings({ ready: state.ready, version: state.caps?.version }));
 }
 
 function wireEvents() {
   window.addEventListener('prism:navigate', (e) => navigate(e.detail.view));
   window.addEventListener('prism:open-file', (e) => openFile(e.detail.path, e.detail.name));
+  window.addEventListener('prism:open-tool', (e) => {
+    const tool = (state.caps?.tools || []).find((t) => t.id === e.detail.toolId);
+    if (tool) openToolPage(tool);
+  });
   window.addEventListener('prism:recent-changed', () => {
-    if (state.view === 'documents' && $main.querySelector('.recent-grid, .page')) {
-      // only refresh the home page listing, not an open viewer
-      if ($main.querySelector('.carousel')) renderHome($main, state.caps, () => navigate('tools'));
-    }
     renderSidebar();
+    if (activeKind === 'section' && state.view === 'documents') navigate('documents');
   });
 }
 
@@ -126,7 +142,7 @@ async function boot() {
     const r = await window.prism.api('/capabilities');
     if (r.ok) state.caps = r.data;
   }
-  navigate(state.view);
+  if (activeKind === 'section') navigate(state.view);
 }
 
 boot();

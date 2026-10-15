@@ -23,4 +23,15 @@ All notable changes to this project are documented here. The format is based on
 - Open-source docs: README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY,
   THIRD_PARTY_NOTICES.
 
+### Changed
+
+- Tools now open a dedicated workspace page (drag-and-drop documents, thumbnail
+  previews with page count/size, drag-to-reorder, remove/replace, editable
+  output name) instead of a chain of native dialogs.
+- View host mounts one view at a time and destroys the previous one — no orphan
+  pages; the viewer renders pages lazily and frees them on exit to bound RAM.
+- `/pdf/info` now returns `size_bytes`.
+- Added `electron-updater` auto-update scaffolding (GitHub Releases feed),
+  active in packaged, signed builds.
+
 [Unreleased]: https://github.com/nnitiwe/prism-documents/commits/main

@@ -2,6 +2,13 @@ appId: studio.prismdata.documents
 productName: PRISM Documents
 copyright: Copyright © 2026 Samuel Theophilus
 
+# Update feed for electron-updater. GitHub Releases — no self-hosted server
+# needed. Update owner/repo if the repository moves.
+publish:
+  provider: github
+  owner: nnitiwe
+  repo: prism-documents
+
 directories:
   output: dist
   buildResources: build

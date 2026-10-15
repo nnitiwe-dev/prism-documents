@@ -15,6 +15,7 @@ def test_info(sample_pdf):
     info = pdf_ops.get_info(sample_pdf)
     assert info["pages"] == 5
     assert info["encrypted"] is False
+    assert info["size_bytes"] > 0
 
 
 def test_merge(sample_pdf, second_pdf, tmp_path):
