@@ -103,11 +103,17 @@ export function buildViewer(filePath, name) {
   async function renderPage(obj) {
     if (destroyed || obj.rendered || obj.renderTask) return;
     const viewport = obj.page.getViewport({ scale });
+    // Render at the device pixel ratio for crisp output on Retina/HiDPI, then
+    // display at the logical size (cap at 2x to bound canvas memory).
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const canvas = el('canvas');
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
+    canvas.width = Math.ceil(viewport.width * dpr);
+    canvas.height = Math.ceil(viewport.height * dpr);
+    canvas.style.width = `${Math.floor(viewport.width)}px`;
+    canvas.style.height = `${Math.floor(viewport.height)}px`;
     obj.wrapper.appendChild(canvas);
-    obj.renderTask = obj.page.render({ canvasContext: canvas.getContext('2d'), viewport });
+    const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
+    obj.renderTask = obj.page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport, transform });
     try {
       await obj.renderTask.promise;
       obj.rendered = true;

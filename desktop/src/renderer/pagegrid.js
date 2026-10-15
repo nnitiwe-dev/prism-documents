@@ -71,11 +71,14 @@ export function createPageGrid({ onChange = () => {}, thumbWidth = 150 } = {}) {
       c.page = c.page || (await doc.getPage(c.n));
       if (destroyed) return;
       const base = c.page.getViewport({ scale: 1 });
-      const vp = c.page.getViewport({ scale: thumbWidth / base.width });
+      // Device-resolution render; CSS caps display width, so it stays crisp.
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const vp = c.page.getViewport({ scale: (thumbWidth * dpr) / base.width });
       const canvas = document.createElement('canvas');
       canvas.width = Math.ceil(vp.width);
       canvas.height = Math.ceil(vp.height);
-      await c.page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      canvas.style.width = `${thumbWidth}px`;
+      await c.page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport: vp }).promise;
       if (destroyed) return;
       clear(c.thumb);
       c.thumb.appendChild(canvas);

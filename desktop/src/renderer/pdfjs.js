@@ -36,12 +36,14 @@ export async function renderThumbnail(filePath, maxWidth = 132) {
     doc = await loadDocument(filePath);
     const page = await doc.getPage(1);
     const base = page.getViewport({ scale: 1 });
-    const scale = maxWidth / base.width;
-    const viewport = page.getViewport({ scale });
+    // Render at device resolution; CSS displays the thumbnail at its box size,
+    // so a higher-res bitmap stays crisp on Retina/HiDPI.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const viewport = page.getViewport({ scale: (maxWidth * dpr) / base.width });
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    await page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport }).promise;
     const url = canvas.toDataURL('image/png');
     return { url, width: canvas.width, height: canvas.height };
   } finally {
