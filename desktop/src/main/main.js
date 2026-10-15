@@ -49,7 +49,11 @@ app.whenReady().then(async () => {
     }
   }
 
-  sidecar = new Sidecar({ devMode: isDev, resourcesPath: process.resourcesPath });
+  sidecar = new Sidecar({
+    devMode: isDev,
+    resourcesPath: process.resourcesPath,
+    logPath: path.join(app.getPath('userData'), 'backend.log'),
+  });
   registerIpc(sidecar, () => mainWindow);
 
   // Start the window immediately; the backend comes up in parallel and the

@@ -1,11 +1,16 @@
-"""CLI entrypoint: ``python -m prism_backend`` / ``prism-backend``."""
+"""CLI entrypoint: ``python -m prism_backend`` / ``prism-backend``.
+
+Uses absolute imports (not relative) so this file works both as a package module
+(`python -m prism_backend`) and as a PyInstaller entry script, where it runs as
+a top-level ``__main__`` with no parent package.
+"""
 
 from __future__ import annotations
 
 import argparse
 
-from .config import DEFAULT_HOST
-from .server import run
+from prism_backend.config import DEFAULT_HOST
+from prism_backend.server import run
 
 
 def main() -> None:

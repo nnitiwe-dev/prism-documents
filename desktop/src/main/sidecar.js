@@ -3,6 +3,7 @@
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const path = require('node:path');
+const fs = require('node:fs');
 
 const READY_EVENT = 'prism-backend-ready';
 const STARTUP_TIMEOUT_MS = 30000;
@@ -20,10 +21,11 @@ const STARTUP_TIMEOUT_MS = 30000;
  *    through the main-process IPC proxy (see ipc.js).
  */
 class Sidecar {
-  constructor({ devMode, resourcesPath }) {
+  constructor({ devMode, resourcesPath, logPath }) {
     this.token = crypto.randomBytes(32).toString('hex');
     this.devMode = devMode;
     this.resourcesPath = resourcesPath;
+    this.logPath = logPath || null;
     this.proc = null;
     this.baseUrl = null;
   }
@@ -37,17 +39,24 @@ class Sidecar {
         options: { cwd: path.join(__dirname, '..', '..', '..', 'backend'), env },
       };
     }
+    // PyInstaller onedir output copied by electron-builder; accept either layout.
     const bin = process.platform === 'win32' ? 'prism-backend.exe' : 'prism-backend';
-    return {
-      command: path.join(this.resourcesPath, 'backend', bin),
-      args: ['--host', '127.0.0.1'],
-      options: { env },
-    };
+    const candidates = [
+      path.join(this.resourcesPath, 'backend', bin),
+      path.join(this.resourcesPath, 'backend', 'prism-backend', bin),
+    ];
+    const command = candidates.find((p) => fs.existsSync(p)) || candidates[0];
+    return { command, args: ['--host', '127.0.0.1'], options: { env } };
   }
 
   start() {
     return new Promise((resolve, reject) => {
       const { command, args, options } = this._spawnTarget();
+
+      const log = this.logPath ? fs.createWriteStream(this.logPath, { flags: 'a' }) : null;
+      const writeLog = (s) => { if (log) { try { log.write(s); } catch { /* noop */ } } };
+      writeLog(`\n[${new Date().toISOString()}] launching: ${command} ${args.join(' ')}\n`);
+
       this.proc = spawn(command, args, options);
 
       let settled = false;
@@ -66,6 +75,7 @@ class Sidecar {
       };
 
       const onStdout = (chunk) => {
+        writeLog(chunk);
         buffer += chunk.toString();
         let nl;
         while ((nl = buffer.indexOf('\n')) >= 0) {
@@ -85,9 +95,10 @@ class Sidecar {
       };
 
       this.proc.stdout.on('data', onStdout);
-      this.proc.stderr.on('data', (d) => console.error('[backend]', d.toString().trim()));
-      this.proc.on('error', finishErr);
+      this.proc.stderr.on('data', (d) => { writeLog(d); console.error('[backend]', d.toString().trim()); });
+      this.proc.on('error', (err) => { writeLog(`spawn error: ${err.message}\n`); finishErr(err); });
       this.proc.on('exit', (code) => {
+        writeLog(`exited with code ${code}\n`);
         if (!this.baseUrl) finishErr(new Error(`backend exited before ready (code ${code})`));
       });
 

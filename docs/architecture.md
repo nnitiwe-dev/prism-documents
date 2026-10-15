@@ -81,10 +81,25 @@ End users should not need Python or uv:
    `AppImage`/`.deb` on Linux).
 3. In production, `sidecar.js` spawns the bundled binary instead of `uv run`.
 
+**Rebuild the backend after any backend change** (`./scripts/build-backend.sh`)
+before `npm run dist:*` — the installer bundles the pre-built binary, not your
+source. The PyInstaller entry (`__main__.py`) uses **absolute** imports so it
+runs correctly as a frozen top-level script.
+
+**If the packaged app shows no tools**, the backend process likely failed to
+start. The renderer now falls back to a static tool registry so tools still
+render, and the status bar shows "Backend unavailable". Diagnose from the
+backend log written to the app's user-data directory:
+`~/Library/Application Support/PRISM Documents/backend.log` (macOS). The sidecar
+also accepts either copied layout (`Resources/backend/prism-backend`).
+
 **Current caveats (Phase 1):** the PyInstaller hidden-import set covers
-uvicorn/pdfplumber/pypdf but may need adjustment as backend deps grow; code
+uvicorn/pdfplumber/pypdf but may need adjustment as backend deps grow. Code
 signing/notarization (macOS) and an installer signing cert (Windows) are not yet
-configured and are required for friction-free installation on those platforms.
+configured; without signing, an unsigned app run **from the DMG** may have its
+spawned backend blocked by Gatekeeper — drag the app to `/Applications` and open
+it once with right-click → Open. First launch is slower (~10s) while PyInstaller
+unpacks, which is why the shell polls the backend for up to ~90s.
 
 ## Updates (VS Code–style, no self-hosted server)
 

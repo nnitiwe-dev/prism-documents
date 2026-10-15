@@ -8,8 +8,9 @@ import { buildViewer } from './viewer.js';
 import { buildToolPage } from './toolpage.js';
 import { runTool } from './ops.js';
 import { initPalette } from './palette.js';
+import { FALLBACK_CAPABILITIES } from './registry-fallback.js';
 
-const state = { caps: null, ready: false, view: 'documents', toolsFilter: 'all' };
+const state = { caps: FALLBACK_CAPABILITIES, ready: false, checked: false, view: 'documents', toolsFilter: 'all' };
 
 const SECTIONS = [
   { id: 'documents', label: 'Documents', icon: 'ti-files' },
@@ -98,8 +99,9 @@ function renderSidebar() {
 
 function renderStatus() {
   clear($status);
+  const label = state.ready ? 'Backend connected' : (state.checked ? 'Backend unavailable — editing tools need it' : 'Starting backend…');
   $status.appendChild(el('span', { class: `status-dot ${state.ready ? 'ok' : 'off'}` }));
-  $status.appendChild(el('span', { text: state.ready ? 'Backend connected' : 'Starting backend…' }));
+  $status.appendChild(el('span', { text: label }));
   $status.appendChild(el('span', { class: 'right', text: '⌘K / Ctrl+K — Commands' }));
 }
 
@@ -127,10 +129,10 @@ function wireEvents() {
 }
 
 async function waitForBackend() {
-  for (let i = 0; i < 60; i++) {
+  // Packaged (PyInstaller) startup is slower than dev; poll up to ~90s.
+  for (let i = 0; i < 180; i++) {
     const s = await window.prism.status();
     if (s.ready) return true;
-    renderStatus();
     await sleep(500);
   }
   return false;
@@ -141,15 +143,16 @@ async function boot() {
   renderStatus();
   initPalette(() => state.caps);
   wireEvents();
-  navigate('documents');
+  navigate('documents'); // tools render immediately from the fallback registry
 
   state.ready = await waitForBackend();
+  state.checked = true;
   renderStatus();
   if (state.ready) {
     const r = await window.prism.api('/capabilities');
-    if (r.ok) state.caps = r.data;
+    if (r.ok) state.caps = r.data; // replace fallback with the canonical registry
+    if (activeKind === 'section') navigate(state.view);
   }
-  if (activeKind === 'section') navigate(state.view);
 }
 
 boot();

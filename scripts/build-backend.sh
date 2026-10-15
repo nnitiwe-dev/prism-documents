@@ -19,6 +19,8 @@ uv run --with pyinstaller pyinstaller \
   --noconfirm \
   --clean \
   --name prism-backend \
+  --paths src \
+  --collect-submodules prism_backend \
   --collect-submodules uvicorn \
   --collect-all pdfplumber \
   --collect-all pdfminer \
