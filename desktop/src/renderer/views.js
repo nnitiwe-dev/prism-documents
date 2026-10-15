@@ -1,7 +1,8 @@
 // View builders. Each returns a detached { element, destroy } the shell mounts.
 
 import { el, clear, icon } from './ui.js';
-import { getRecent } from './store.js';
+import { getRecent, removeRecent, clearRecent } from './store.js';
+import { renderThumbnail } from './pdfjs.js';
 
 function toolCard(tool, onOpenTool) {
   const planned = tool.status === 'planned';
@@ -57,24 +58,44 @@ export function buildHome(caps, { onExplore, onOpenFile, onOpenTool }) {
   ]));
   page.appendChild(el('div', { class: 'carousel' }, [track]));
 
-  page.appendChild(el('div', { class: 'section-bar' }, [el('h2', { text: 'Recent documents' })]));
   const recent = getRecent();
+  page.appendChild(el('div', { class: 'section-bar' }, [
+    el('h2', { text: 'Recent documents' }),
+    recent.length ? el('button', { class: 'btn', text: 'Clear all', onClick: () => clearRecent() }) : null,
+  ]));
+
+  let thumbObserver = null;
   if (!recent.length) {
     page.appendChild(el('div', { class: 'empty', text: 'No recent documents yet. Use “Open & view” to get started.' }));
   } else {
     const grid = el('div', { class: 'recent-grid' });
+    thumbObserver = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        thumbObserver.unobserve(e.target);
+        const path = e.target.dataset.path;
+        renderThumbnail(path, 260).then((t) => {
+          if (t && e.target.isConnected) { clear(e.target); const img = el('img', { src: t.url, alt: '' }); e.target.appendChild(img); }
+        }).catch(() => {});
+      }
+    }, { rootMargin: '200px 0px' });
+
     for (const r of recent) {
+      const thumb = el('div', { class: 'recent-thumb', dataset: { path: r.path } }, [icon('ti-file-text')]);
+      const removeBtn = el('button', { class: 'recent-x round-btn', title: 'Remove from recent', 'aria-label': 'Remove from recent', onClick: (e) => { e.stopPropagation(); removeRecent(r.path); } }, [icon('ti-x')]);
       grid.appendChild(el('div', { class: 'recent-card', onClick: () => onOpenFile(r.path, r.name) }, [
-        el('div', { class: 'recent-thumb' }, [icon('ti-file-text')]),
+        thumb,
+        removeBtn,
         el('div', { class: 'recent-meta' }, [
           el('div', { class: 'name', text: r.name }),
           el('div', { class: 'when', text: `Opened ${relTime(r.opened)}` }),
         ]),
       ]));
+      thumbObserver.observe(thumb);
     }
     page.appendChild(grid);
   }
-  return { element: page, destroy: () => {} };
+  return { element: page, destroy: () => { if (thumbObserver) thumbObserver.disconnect(); } };
 }
 
 export function buildTools(caps, { initialFilter = 'all', onOpenTool }) {

@@ -47,6 +47,7 @@ const P = {
   'ti-zoom-out': 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M20 20l-4-4 M8 11h6',
   'ti-chevron-left': 'M15 6l-6 6 6 6',
   'ti-chevron-right': 'M9 6l6 6-6 6',
+  'ti-list': 'M8 6h12 M8 12h12 M8 18h12 M4 6h.01 M4 12h.01 M4 18h.01',
 };
 
 export function icon(name) {

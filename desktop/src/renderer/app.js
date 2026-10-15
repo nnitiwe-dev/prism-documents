@@ -2,7 +2,7 @@
 // pages, resources freed on navigation), status bar, and event routing.
 
 import { el, clear, icon } from './ui.js';
-import { getRecent } from './store.js';
+import { getRecent, removeRecent, clearRecent } from './store.js';
 import { buildHome, buildTools, buildModels, buildSettings } from './views.js';
 import { buildViewer } from './viewer.js';
 import { buildToolPage } from './toolpage.js';
@@ -65,11 +65,18 @@ function renderActivityBar() {
 function renderSidebar() {
   clear($side);
   if (state.view === 'documents') {
-    $side.appendChild(el('div', { class: 'side-title', text: 'Recent' }));
     const recent = getRecent();
-    if (!recent.length) $side.appendChild(el('div', { class: 'side-item', text: 'No documents yet' }));
+    $side.appendChild(el('div', { class: 'side-title row' }, [
+      el('span', { text: 'Recent' }),
+      recent.length ? el('button', { class: 'side-clear', text: 'Clear', onClick: () => clearRecent() }) : null,
+    ]));
+    if (!recent.length) $side.appendChild(el('div', { class: 'side-item muted', text: 'No documents yet' }));
     else for (const r of recent.slice(0, 12)) {
-      $side.appendChild(el('div', { class: 'side-item', onClick: () => openFile(r.path, r.name) }, [icon('ti-file-text'), el('span', { text: r.name })]));
+      $side.appendChild(el('div', { class: 'side-item', onClick: () => openFile(r.path, r.name) }, [
+        icon('ti-file-text'),
+        el('span', { class: 'side-item-name', text: r.name }),
+        el('button', { class: 'side-x', title: 'Remove', 'aria-label': 'Remove', onClick: (e) => { e.stopPropagation(); removeRecent(r.path); } }, [icon('ti-x')]),
+      ]));
     }
   } else if (state.view === 'tools') {
     $side.appendChild(el('div', { class: 'side-title', text: 'Categories' }));

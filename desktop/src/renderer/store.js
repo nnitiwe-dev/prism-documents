@@ -21,3 +21,21 @@ export function addRecent(path, name) {
   }
   window.dispatchEvent(new CustomEvent('prism:recent-changed'));
 }
+
+export function removeRecent(path) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(getRecent().filter((r) => r.path !== path)));
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new CustomEvent('prism:recent-changed'));
+}
+
+export function clearRecent() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new CustomEvent('prism:recent-changed'));
+}

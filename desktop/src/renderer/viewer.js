@@ -1,6 +1,5 @@
-// PDF viewer with lazy, RAM-bounded rendering: only pages near the viewport
-// hold a canvas; pages scrolled far away are unloaded. Everything is torn down
-// in destroy() so leaving the viewer frees the document and its canvases.
+// PDF viewer with a navigation pane (document outline / page list) and lazy,
+// RAM-bounded page rendering. Everything is torn down in destroy().
 
 import { el, clear, icon, toast } from './ui.js';
 import { loadDocument, baseName } from './pdfjs.js';
@@ -35,6 +34,8 @@ export function buildViewer(filePath, name) {
   let observer = null;
   let pageObjs = []; // { index, wrapper, page, renderTask, rendered }
 
+  const navEl = el('aside', { class: 'viewer-nav hidden' });
+  const navToggle = iconBtn('ti-list', 'Navigation', () => navEl.classList.toggle('hidden'));
   const nameEl = el('span', { class: 'name', text: label });
   const pageInfo = el('span', { class: 'zoom-label', text: '…' });
   const zoomLabel = el('span', { class: 'zoom-label', text: `${Math.round(scale * 100)}%` });
@@ -42,6 +43,7 @@ export function buildViewer(filePath, name) {
   const pagesEl = el('div', { class: 'viewer-pages' });
 
   const bar = el('div', { class: 'viewer-bar' }, [
+    navToggle,
     nameEl,
     search,
     iconBtn('ti-zoom-out', 'Zoom out', () => setScale(scale - 0.15)),
@@ -49,10 +51,52 @@ export function buildViewer(filePath, name) {
     iconBtn('ti-zoom-in', 'Zoom in', () => setScale(scale + 0.15)),
     pageInfo,
   ]);
-  const element = el('div', { class: 'viewer' }, [bar, pagesEl]);
+  const element = el('div', { class: 'viewer' }, [bar, el('div', { class: 'viewer-body' }, [navEl, pagesEl])]);
 
   function iconBtn(ic, title, onClick) {
     return el('button', { class: 'icon-btn', title, 'aria-label': title, onClick }, [icon(ic)]);
+  }
+
+  function scrollToPage(n) {
+    pageObjs[n - 1]?.wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function gotoDest(dest) {
+    try {
+      let d = dest;
+      if (typeof d === 'string') d = await doc.getDestination(d);
+      if (!Array.isArray(d) || !d.length) return;
+      const ref = d[0];
+      let pageIndex = 0;
+      if (ref && typeof ref === 'object') pageIndex = await doc.getPageIndex(ref);
+      else if (typeof ref === 'number') pageIndex = ref;
+      scrollToPage(pageIndex + 1);
+    } catch {
+      /* unresolved destination */
+    }
+  }
+
+  function buildOutline(items, depth) {
+    const frag = document.createDocumentFragment();
+    for (const it of items) {
+      frag.appendChild(el('div', {
+        class: 'outline-item',
+        style: `padding-left:${8 + depth * 12}px`,
+        title: it.title,
+        onClick: () => gotoDest(it.dest),
+      }, it.title || '(untitled)'));
+      if (it.items && it.items.length) frag.appendChild(buildOutline(it.items, depth + 1));
+    }
+    return frag;
+  }
+
+  function buildPageList(n) {
+    const frag = document.createDocumentFragment();
+    frag.appendChild(el('div', { class: 'nav-title', text: 'Pages' }));
+    for (let i = 1; i <= n; i++) {
+      frag.appendChild(el('div', { class: 'outline-item', onClick: () => scrollToPage(i) }, `Page ${i}`));
+    }
+    return frag;
   }
 
   async function renderPage(obj) {
@@ -89,13 +133,7 @@ export function buildViewer(filePath, name) {
     scale = Math.min(3, Math.max(0.4, Number(next.toFixed(2))));
     zoomLabel.textContent = `${Math.round(scale * 100)}%`;
     for (const obj of pageObjs) { unloadPage(obj); sizeWrapper(obj); }
-    // visible pages will re-render via the observer on the next tick
-    observeAll();
-  }
-
-  function observeAll() {
-    if (!observer) return;
-    for (const obj of pageObjs) observer.observe(obj.wrapper);
+    if (observer) for (const obj of pageObjs) observer.observe(obj.wrapper);
   }
 
   async function find(query) {
@@ -105,7 +143,7 @@ export function buildViewer(filePath, name) {
       const content = await page.getTextContent();
       const text = content.items.map((i) => i.str).join(' ').toLowerCase();
       if (text.includes(query.toLowerCase())) {
-        pageObjs[n - 1]?.wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollToPage(n);
         toast(`Found on page ${n}`, 'success');
         return;
       }
@@ -136,7 +174,20 @@ export function buildViewer(filePath, name) {
           else unloadPage(obj);
         }
       }, { root: pagesEl, rootMargin: '500px 0px' });
-      observeAll();
+      for (const obj of pageObjs) observer.observe(obj.wrapper);
+
+      // Navigation pane: show the document outline (TOC) if present, else a
+      // simple page list. Shown by default only when a real outline exists.
+      const outline = await doc.getOutline().catch(() => null);
+      clear(navEl);
+      if (outline && outline.length) {
+        navEl.appendChild(el('div', { class: 'nav-title', text: 'Contents' }));
+        navEl.appendChild(buildOutline(outline, 0));
+        navEl.classList.remove('hidden');
+      } else {
+        navEl.appendChild(buildPageList(doc.numPages));
+      }
+
       addRecent(filePath, label);
     } catch (err) {
       clear(pagesEl);

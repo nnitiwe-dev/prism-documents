@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, nativeImage } = require('electron');
 const path = require('node:path');
 const { Sidecar } = require('./sidecar');
 const { registerIpc } = require('./ipc');
@@ -39,6 +39,16 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Dock icon on macOS: the window `icon` option does not set the dock icon,
+  // and in dev the dock shows Electron's icon unless we set it explicitly.
+  if (process.platform === 'darwin' && app.dock) {
+    try {
+      app.dock.setIcon(nativeImage.createFromPath(APP_ICON));
+    } catch {
+      /* non-fatal */
+    }
+  }
+
   sidecar = new Sidecar({ devMode: isDev, resourcesPath: process.resourcesPath });
   registerIpc(sidecar, () => mainWindow);
 
