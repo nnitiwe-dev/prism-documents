@@ -1,0 +1,22 @@
+# Python / uv
+backend/.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+backend/build/
+backend/dist/
+backend/*.spec
+
+# Node / Electron
+desktop/node_modules/
+desktop/dist/
+desktop/out/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

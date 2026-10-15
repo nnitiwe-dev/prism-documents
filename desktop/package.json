@@ -1,0 +1,25 @@
+{
+  "name": "prism-documents",
+  "productName": "PRISM Documents",
+  "version": "0.1.0",
+  "description": "Open-source, local-first document intelligence — by PRISM Data Studio",
+  "license": "MIT",
+  "author": "Samuel Theophilus",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "lint": "eslint src || true",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.8.69"
+  }
+}

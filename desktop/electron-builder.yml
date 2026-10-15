@@ -1,0 +1,40 @@
+appId: studio.prismdata.documents
+productName: PRISM Documents
+copyright: Copyright © 2026 Samuel Theophilus
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - src/**/*
+  - node_modules/**/*
+  - "!**/*.map"
+  - "!**/*.ts"
+
+# The Python backend is bundled as a standalone binary built by
+# scripts/build-backend.sh (PyInstaller). It is placed under the app's
+# resources/backend directory, where sidecar.js looks for it in production.
+extraResources:
+  - from: ../backend/dist/prism-backend
+    to: backend
+    filter: ["**/*"]
+
+mac:
+  target: [dmg, zip]
+  category: public.app-category.productivity
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  target: [nsis]
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+
+linux:
+  target: [AppImage, deb]
+  category: Office
+  artifactName: ${productName}-${version}-${arch}.${ext}
