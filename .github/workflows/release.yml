@@ -22,11 +22,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macos-latest is Apple Silicon (arm64). Intel-Mac runners (macos-13)
-          # are being retired and queue indefinitely, so Intel .dmg is built
-          # locally instead. arm64 + Windows + Linux build reliably here.
-          - os: macos-latest
-            platform: mac
+          # Windows + Linux build in CI. macOS is built locally and uploaded:
+          # the arm64 runner's llama-cpp-python wheel is served corrupt (fails to
+          # decompress even with retries), and Intel-Mac runners are retired.
           - os: windows-latest
             platform: win
           - os: ubuntu-latest
