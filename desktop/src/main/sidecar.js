@@ -107,16 +107,24 @@ class Sidecar {
   }
 
   async request(pathname, { method = 'GET', body } = {}) {
-    if (!this.baseUrl) throw new Error('backend is not ready');
+    if (!this.baseUrl) throw new Error('The local engine is still starting — try again in a moment.');
     const res = await fetch(this.baseUrl + pathname, {
       method,
       headers: { 'X-Prism-Token': this.token, 'Content-Type': 'application/json' },
       body: body != null ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();
-    const data = text ? JSON.parse(text) : null;
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null; // non-JSON body (e.g. a plain "Internal Server Error")
+      }
+    }
     if (!res.ok) {
-      const err = new Error((data && data.detail) || res.statusText);
+      const detail = (data && data.detail) || (text && text.trim().slice(0, 300)) || res.statusText;
+      const err = new Error(detail);
       err.status = res.status;
       throw err;
     }

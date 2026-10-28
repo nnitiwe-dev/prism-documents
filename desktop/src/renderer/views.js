@@ -166,6 +166,10 @@ function modelCard(m, refresh) {
     ]);
   } else {
     action = el('button', { class: 'btn primary', text: 'Download', onClick: async () => {
+      if (m.verdict?.level === 'not-recommended' &&
+          !window.confirm(`${m.name} isn’t recommended for this machine — it may run very slowly or fail. Download anyway?`)) {
+        return;
+      }
       const r = await window.prism.api('/models/download', { method: 'POST', body: { model_id: m.id } });
       if (r.ok) refresh(); else toast(r.error || 'Download failed', 'error');
     } });
@@ -263,17 +267,64 @@ export function buildModels() {
   return { element: page, destroy: () => { cancelled = true; if (poll) clearInterval(poll); } };
 }
 
-export function buildSettings({ ready, version }) {
+export function buildSettings({ ready }) {
   const page = el('div', { class: 'page' });
   page.appendChild(el('div', { class: 'page-head' }, [
     el('div', {}, [el('h1', { text: 'Settings' }), el('p', { text: 'PRISM Documents — by PRISM Data Studio' })]),
   ]));
-  page.appendChild(el('pre', { class: 'infobox', text: [
-    `Version:        ${version || '0.1.0'}`,
-    `Backend status: ${ready ? 'connected (local)' : 'not connected'}`,
-    `License:        MIT`,
-    '',
-    'All processing happens locally on this machine.',
-  ].join('\n') }));
-  return { element: page, destroy: () => {} };
+  const body = el('div', {}, [el('div', { class: 'empty', text: 'Loading settings…' })]);
+  page.appendChild(body);
+
+  let cancelled = false;
+  (async () => {
+    const [cfgR, engR, modR] = await Promise.all([
+      window.prism.api('/settings'), window.prism.api('/system/engines'), window.prism.api('/models'),
+    ]);
+    if (cancelled) return;
+    clear(body);
+    if (!cfgR.ok) { body.appendChild(el('div', { class: 'empty', text: 'Settings unavailable (backend not connected).' })); return; }
+    const cfg = cfgR.data.settings;
+    const ocrEngines = engR.ok ? engR.data.engines.filter((e) => e.capability === 'ocr' && e.status === 'available') : [];
+    const installed = modR.ok ? modR.data.models.filter((m) => m.installed) : [];
+
+    const methodSel = el('select', {}, ocrEngines.map((e) => el('option', { value: e.id, text: e.name })));
+    if (ocrEngines.some((e) => e.id === cfg.default_ocr_engine)) methodSel.value = cfg.default_ocr_engine;
+
+    const modelSel = el('select', {}, [
+      el('option', { value: '', text: 'First installed' }),
+      ...installed.map((m) => el('option', { value: m.id, text: m.name })),
+    ]);
+    modelSel.value = cfg.default_model || '';
+
+    const warnCb = el('input', { type: 'checkbox' });
+    warnCb.checked = cfg.warn_unrecommended !== false;
+
+    const status = el('div', { class: 'save-status' });
+    const save = async () => {
+      const r = await window.prism.api('/settings', { method: 'POST', body: {
+        default_ocr_engine: methodSel.value,
+        default_model: modelSel.value,
+        warn_unrecommended: warnCb.checked,
+      } });
+      status.textContent = r.ok ? 'Saved.' : 'Could not save.';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    };
+
+    body.appendChild(el('div', { class: 'options' }, [
+      el('label', { class: 'opt' }, ['Default extract / OCR method', methodSel]),
+      el('label', { class: 'opt' }, ['Default summarization model', modelSel]),
+      el('label', { class: 'opt opt-row' }, [warnCb, el('span', { text: 'Warn before downloading a “Not recommended” model' })]),
+    ]));
+    body.appendChild(el('div', { class: 'runbar' }, [el('div', { class: 'runbar-spacer' }), status, el('button', { class: 'btn primary', text: 'Save settings', onClick: save })]));
+    body.appendChild(el('pre', { class: 'infobox', text: [
+      `Version:        ${cfgR.data.version}`,
+      `Backend:        ${ready ? 'connected (local)' : 'not connected'}`,
+      `Models folder:  ${cfgR.data.models_dir}`,
+      `License:        MIT`,
+      '',
+      'All processing happens locally on this machine. Nothing is uploaded.',
+    ].join('\n') }));
+  })();
+
+  return { element: page, destroy: () => { cancelled = true; } };
 }

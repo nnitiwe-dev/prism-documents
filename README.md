@@ -26,11 +26,13 @@ architecture the rest of the vision plugs into.
 Grab the latest installer for your platform from the
 **[Releases page](https://github.com/nnitiwe-dev/prism-documents/releases/latest)**:
 
-| Platform | Installer |
-|----------|-----------|
-| macOS (Intel / Apple Silicon via Rosetta) | [Download .dmg](https://github.com/nnitiwe-dev/prism-documents/releases/latest/download/PRISM.Documents-0.1.0-x64.dmg) |
-| Windows | [Download .exe](https://github.com/nnitiwe-dev/prism-documents/releases/latest/download/PRISM.Documents-Setup-0.1.0.exe) |
-| Linux | [Download .AppImage](https://github.com/nnitiwe-dev/prism-documents/releases/latest/download/PRISM.Documents-0.1.0-x86_64.AppImage) |
+On the [Releases page](https://github.com/nnitiwe-dev/prism-documents/releases/latest), pick the file for your platform:
+
+| Platform | File |
+|----------|------|
+| macOS | `.dmg` (choose `arm64` for Apple Silicon, `x64` for Intel) |
+| Windows | `PRISM-Documents-Setup-*.exe` |
+| Linux | `.AppImage` |
 
 The app is **not yet code-signed**, so your OS will warn on first launch:
 
@@ -40,19 +42,26 @@ The app is **not yet code-signed**, so your OS will warn on first launch:
 
 First launch takes ~10s while the local engine unpacks. Everything runs on your machine; nothing is uploaded.
 
-## Features (Phase 1)
+## Features
 
-- 📄 **View** — open, read, zoom, navigate, and find text in PDFs
-- 🧩 **Merge** several PDFs into one
-- ✂️ **Split** into page ranges or one file per page
-- 🔄 **Rotate**, **reorder**, and **remove** pages
-- 🔤 **Extract text** page by page
-- 💾 **Export** modified documents
-- 🗂️ A VS Code–style shell (activity bar, command palette with `⌘K` / `Ctrl+K`)
-- 🖥️ A **Models** panel that reads your hardware (on-device model recommendations come later)
+**PDF tools**
+- 📄 **View** — open, read, zoom, navigate, select text, and find in PDFs
+- 🧩 **Merge**, ✂️ **Split**, 🔄 **Rotate**, **Reorder**, and **Remove** pages — lossless
 
-> Highlighting/notes, form filling, signing, and OCR appear in the tools gallery
-> marked **planned** — they arrive in Phase 2.
+**Document intelligence (local, optional)**
+- 🔤 **Extract text & OCR** — one tool, pick the method: *Text layer* (instant),
+  *Tesseract* (OCR → searchable PDF / text), or *Docling* (layout + tables →
+  Markdown / JSON). Copy or export the result.
+- 🧠 **Summarize** — summarize a document with a local model via llama.cpp
+- 🖥️ **Models** — reads your hardware and rates each engine/model
+  *Runs comfortably / May lag / Not recommended*; download models with progress
+- ⚙️ **Settings** — default method, default model, download warnings
+
+**Shell** — VS Code–style activity bar + command palette (`⌘K` / `Ctrl+K`)
+
+> Engines degrade gracefully by platform: Tesseract and the Text layer work
+> everywhere; Docling needs PyTorch ≥ 2.4 (Apple Silicon / Linux / Windows — not
+> Intel Macs). The app always falls back to what your machine can run.
 
 ## Architecture at a glance
 

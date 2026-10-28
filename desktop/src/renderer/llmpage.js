@@ -45,6 +45,10 @@ export function buildLlmPage(tool, { onBack } = {}) {
         modelRow.classList.add('hidden');
       } else {
         for (const m of installed) modelSelect.appendChild(el('option', { value: m.id, text: m.name }));
+        try {
+          const cfg = (await api('/settings', {})).settings || {};
+          if (cfg.default_model && installed.some((m) => m.id === cfg.default_model)) modelSelect.value = cfg.default_model;
+        } catch { /* defaults */ }
       }
     } catch { /* backend not ready */ }
     refresh();

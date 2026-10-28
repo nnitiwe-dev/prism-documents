@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from .. import __version__, registry
 from ..intelligence import engines
 from ..security import verify_token
-from ..services import docling_engine, hardware, ocr
+from ..services import docling_engine, hardware, models_mgr, ocr, settings_store
 
 router = APIRouter()
 
@@ -34,3 +34,17 @@ async def system_engines() -> dict:
     return engines.evaluate(
         hardware.profile(), ocr.tesseract_available(), docling_engine.docling_available()
     )
+
+
+@router.get("/settings", dependencies=[Depends(verify_token)])
+async def get_settings() -> dict:
+    return {
+        "settings": settings_store.load(),
+        "models_dir": str(models_mgr.MODELS_DIR),
+        "version": __version__,
+    }
+
+
+@router.post("/settings", dependencies=[Depends(verify_token)])
+async def update_settings(patch: dict | None = None) -> dict:
+    return {"settings": settings_store.save(patch or {})}

@@ -59,8 +59,10 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
         const suffix = usable ? '' : e.status === 'planned' ? ' (coming soon)' : ' (install required)';
         engineSelect.appendChild(el('option', { value: e.id, text: e.name + suffix, disabled: usable ? null : '' }));
       }
+      let cfg = {};
+      try { cfg = (await api('/settings', {})).settings || {}; } catch { /* defaults */ }
       const avail = engines.filter((e) => e.status === 'available');
-      const first = avail.find((e) => e.default) || avail[0] || engines[0];
+      const first = avail.find((e) => e.id === cfg.default_ocr_engine) || avail.find((e) => e.default) || avail[0] || engines[0];
       if (first) engineSelect.value = first.id;
       onEngineChange();
     } catch {
