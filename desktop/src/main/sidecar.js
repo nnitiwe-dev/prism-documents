@@ -32,6 +32,14 @@ class Sidecar {
 
   _spawnTarget() {
     const env = { ...process.env, PRISM_AUTH_TOKEN: this.token };
+    // A GUI-launched app inherits a stripped PATH that often omits the dirs where
+    // Homebrew / user tools (e.g. tesseract) live. Add the common locations so
+    // the backend can find system binaries like tesseract and ghostscript.
+    if (process.platform !== 'win32') {
+      const home = process.env.HOME || '';
+      const extra = ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', `${home}/.local/bin`];
+      env.PATH = [env.PATH, ...extra].filter(Boolean).join(':');
+    }
     if (this.devMode) {
       return {
         command: 'uv',

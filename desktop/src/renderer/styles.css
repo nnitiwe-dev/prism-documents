@@ -432,6 +432,7 @@ select, .btn {
 .dl-bar { flex: 1; height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden; }
 .dl-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
 .dl-pct { font-size: 11px; color: var(--text-2); min-width: 32px; text-align: right; }
+.engine-hint { font-size: 11px; color: var(--text-2); line-height: 1.4; }
 .summary-wrap { margin-top: 16px; }
 .summary-wrap .infobox { margin-top: 6px; }
 .result-actions { display: flex; gap: 8px; margin-bottom: 8px; }

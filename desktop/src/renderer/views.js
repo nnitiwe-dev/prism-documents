@@ -146,6 +146,8 @@ function engineCard(e, install, onInstall) {
     ]);
   } else if (e.installable) {
     action = el('button', { class: 'btn primary', text: 'Install', onClick: () => onInstall(e.id) });
+  } else if (e.runtime === 'tesseract' && e.status === 'needs-install') {
+    action = el('div', { class: 'engine-hint', text: 'System install: brew install tesseract (macOS) · apt install tesseract-ocr (Linux) · winget install tesseract (Windows)' });
   }
   return el('div', { class: 'engine-card' }, [
     el('div', { class: 'engine-main' }, [
