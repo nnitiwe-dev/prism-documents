@@ -7,4 +7,4 @@ token, so it never conflicts with other local apps and is not reachable from
 the network.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"

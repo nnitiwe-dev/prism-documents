@@ -4,9 +4,24 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [0.2.0]
+## [0.2.1]
+
+> 0.2.0 was tagged but its release build failed (cross-platform wheel/publish
+> issues); 0.2.1 is the first published 0.2.x build. Changes below cover both.
+
+### Fixed (0.2.1)
+
+- Release builds now succeed on macOS (both arches), Windows and Linux:
+  per-platform `llama-cpp-python` pins (no single version has both Mac-arch
+  wheels), corrected GitHub publish owner, and dropped the `.deb` target.
+- Docling engine gained a real **Install** flow and honest status (shows
+  "Not supported here" on Intel Macs, where PyTorch ≥ 2.4 has no wheel).
+- Removed the unimplemented Dolphin / PaddleOCR-VL engine cards.
+- Clearer IPC error alerts (no raw "not valid JSON").
 
 ### Added
+
+
 
 - **Extract text & OCR** — a single tool (replacing the separate "Extract text"
   and "OCR scan") with a method picker and output formats:
