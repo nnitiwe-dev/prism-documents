@@ -47,7 +47,14 @@ jobs:
       - name: Build backend (native PyInstaller binary for this OS)
         working-directory: backend
         run: |
-          uv sync
+          # Retry: prebuilt wheels are served from GitHub Pages and occasionally
+          # arrive corrupt ("deflate ... invalid block type"). Clear the poisoned
+          # cache between attempts.
+          n=0
+          until uv sync; do
+            n=$((n+1)); [ $n -ge 3 ] && echo "uv sync failed after 3 attempts" && exit 1
+            echo "uv sync failed (attempt $n) — clearing cache and retrying"; uv cache clean || true; sleep 10
+          done
           uv run --with pyinstaller pyinstaller \
             --noconfirm --clean --name prism-backend \
             --paths src \

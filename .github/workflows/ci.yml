@@ -19,7 +19,12 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Sync dependencies
-        run: uv sync --extra dev
+        run: |
+          n=0
+          until uv sync --extra dev; do
+            n=$((n+1)); [ $n -ge 3 ] && echo "uv sync failed after 3 attempts" && exit 1
+            echo "retry $n: clearing cache"; uv cache clean || true; sleep 10
+          done
 
       - name: Lint
         run: uv run ruff check src
