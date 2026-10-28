@@ -36,27 +36,21 @@ export function buildHome(caps, { onExplore, onOpenFile, onOpenTool }) {
   ]));
 
   const tools = caps?.tools || [];
-  const categories = caps?.categories || [];
-  const filter = el('select', {}, [
-    el('option', { value: 'all', text: 'All categories' }),
-    ...categories.map((c) => el('option', { value: c.id, text: c.label })),
-  ]);
-  const track = el('div', { class: 'carousel-track' });
-  const fill = () => {
-    clear(track);
-    const sel = filter.value;
-    const list = tools.filter((t) => sel === 'all' || t.category === sel);
-    if (!list.length) track.appendChild(el('div', { class: 'empty', text: 'No tools in this category yet.' }));
+  const GROUPS = [
+    { label: 'Essential PDF tools', categories: ['organize-edit', 'annotate', 'forms-signing', 'convert-export', 'security', 'optimize'] },
+    { label: 'Content understanding', categories: ['content-understanding', 'extraction'] },
+  ];
+  GROUPS.forEach((g, idx) => {
+    const list = tools.filter((t) => g.categories.includes(t.category));
+    if (!list.length) return;
+    const actions = idx === 0
+      ? el('div', { class: 'section-actions' }, [el('button', { class: 'btn', text: 'Explore all tools', onClick: onExplore })])
+      : null;
+    page.appendChild(el('div', { class: 'section-bar' }, [el('h2', { text: g.label }), actions]));
+    const track = el('div', { class: 'carousel-track' });
     for (const t of list) track.appendChild(toolCard(t, onOpenTool));
-  };
-  filter.addEventListener('change', fill);
-  fill();
-
-  page.appendChild(el('div', { class: 'section-bar' }, [
-    el('h2', { text: 'Tools' }),
-    el('div', { class: 'section-actions' }, [filter, el('button', { class: 'btn', text: 'Explore all tools', onClick: onExplore })]),
-  ]));
-  page.appendChild(el('div', { class: 'carousel' }, [track]));
+    page.appendChild(el('div', { class: 'carousel' }, [track]));
+  });
 
   const recent = getRecent();
   page.appendChild(el('div', { class: 'section-bar' }, [
@@ -234,8 +228,9 @@ export function buildModels() {
       const list = eng.data.engines.filter((e) => e.capability === cap.id);
       if (!list.length) continue;
       const group = el('div', { class: 'cat-group' }, [el('h2', { text: cap.label })]);
+      const grid = el('div', { class: 'engine-grid' });
       for (const e of list) {
-        group.appendChild(el('div', { class: 'engine-card' }, [
+        grid.appendChild(el('div', { class: 'engine-card' }, [
           el('div', { class: 'engine-main' }, [
             el('div', { class: 'engine-top' }, [el('span', { class: 'engine-name', text: e.name }), verdictBadge(e)]),
             el('div', { class: 'engine-desc', text: e.description }),
@@ -243,6 +238,7 @@ export function buildModels() {
           ]),
         ]));
       }
+      group.appendChild(grid);
       enginesWrap.appendChild(group);
     }
   });
@@ -255,7 +251,9 @@ export function buildModels() {
       modelsWrap.appendChild(el('div', { class: 'empty', text: 'Could not load models.' }));
       return;
     }
-    for (const m of r.data.models) modelsWrap.appendChild(modelCard(m, renderModels));
+    const grid = el('div', { class: 'engine-grid' });
+    for (const m of r.data.models) grid.appendChild(modelCard(m, renderModels));
+    modelsWrap.appendChild(grid);
     const anyDownloading = r.data.models.some((m) => m.downloading);
     if (anyDownloading && !poll) poll = setInterval(renderModels, 1500);
     if (!anyDownloading && poll) { clearInterval(poll); poll = null; }

@@ -22,7 +22,10 @@ async def run(body: OcrIn):
     if body.engine != "tesseract":
         raise HTTPException(status_code=400, detail=f"Engine '{body.engine}' is not available yet.")
     try:
-        return ocr.run_ocr(body.input, body.output, language=body.language, force=body.force)
+        return ocr.run_ocr(
+            body.input, body.output, language=body.language, force=body.force,
+            output_format=body.output_format,
+        )
     except PdfOpError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001

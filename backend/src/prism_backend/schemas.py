@@ -58,14 +58,17 @@ class PathIn(BaseModel):
 
 class OcrIn(BaseModel):
     input: str
-    output: str
+    output: str | None = None
     language: str = "eng"
     force: bool = Field(default=False, description="Re-OCR pages that already have text")
     engine: str = "tesseract"
+    output_format: str = "searchable-pdf"
 
 
 class OcrResult(BaseModel):
-    output: str
+    output: str | None = None
+    text: str | None = None
+    format: str = "searchable-pdf"
     language: str
     pages_ocred: int = 0
 

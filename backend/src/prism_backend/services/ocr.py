@@ -47,7 +47,13 @@ def _page_has_text(page) -> bool:
         return False
 
 
-def run_ocr(input: str, output: str, language: str = "eng", force: bool = False) -> dict:
+def run_ocr(
+    input: str,
+    output: str,
+    language: str = "eng",
+    force: bool = False,
+    output_format: str = "searchable-pdf",
+) -> dict:
     p = require_pdf(input)
     if not tesseract_available():
         raise PdfOpError("OCR engine not available: install tesseract.")
@@ -57,6 +63,16 @@ def run_ocr(input: str, output: str, language: str = "eng", force: bool = False)
     except ImportError as exc:  # pragma: no cover - dependency guard
         raise PdfOpError("OCR support is not installed (pytesseract/pypdfium2).") from exc
 
+    if output_format == "searchable-pdf":
+        return _searchable_pdf(p, output, language, force, pdfium, pytesseract)
+    if output_format == "text":
+        return _plain_text(p, output, language, force, pdfium, pytesseract)
+    raise PdfOpError(
+        f"Tesseract can't produce {output_format}. For Markdown/JSON use Docling (coming soon)."
+    )
+
+
+def _searchable_pdf(p, output, language, force, pdfium, pytesseract) -> dict:
     reader = PdfReader(str(p))
     writer = PdfWriter()
     pdfium_doc = pdfium.PdfDocument(str(p))
@@ -66,8 +82,7 @@ def run_ocr(input: str, output: str, language: str = "eng", force: bool = False)
             if not force and _page_has_text(reader.pages[i]):
                 writer.add_page(reader.pages[i])  # keep native text page, lossless
                 continue
-            page = pdfium_doc[i]
-            bitmap = page.render(scale=RENDER_DPI / 72)
+            bitmap = pdfium_doc[i].render(scale=RENDER_DPI / 72)
             pil = bitmap.to_pil()
             try:
                 page_pdf = pytesseract.image_to_pdf_or_hocr(pil, lang=language, extension="pdf")
@@ -77,7 +92,36 @@ def run_ocr(input: str, output: str, language: str = "eng", force: bool = False)
             ocr_pages += 1
     finally:
         pdfium_doc.close()
-
     with open(output, "wb") as f:
         writer.write(f)
-    return {"output": output, "language": language, "pages_ocred": ocr_pages}
+    return {
+        "output": output,
+        "format": "searchable-pdf",
+        "language": language,
+        "pages_ocred": ocr_pages,
+    }
+
+
+def _plain_text(p, output, language, force, pdfium, pytesseract) -> dict:
+    reader = PdfReader(str(p))
+    pdfium_doc = pdfium.PdfDocument(str(p))
+    parts: list[str] = []
+    ocr_pages = 0
+    try:
+        for i in range(len(reader.pages)):
+            if not force and _page_has_text(reader.pages[i]):
+                parts.append(reader.pages[i].extract_text() or "")
+                continue
+            bitmap = pdfium_doc[i].render(scale=RENDER_DPI / 72)
+            parts.append(pytesseract.image_to_string(bitmap.to_pil(), lang=language))
+            ocr_pages += 1
+    finally:
+        pdfium_doc.close()
+    text = "\n\n".join(parts).strip()
+    if output:
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(text)
+    return {
+        "output": output or None, "text": text, "format": "text",
+        "language": language, "pages_ocred": ocr_pages,
+    }

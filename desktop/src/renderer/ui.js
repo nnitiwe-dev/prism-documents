@@ -48,6 +48,8 @@ const P = {
   'ti-chevron-left': 'M15 6l-6 6 6 6',
   'ti-chevron-right': 'M9 6l6 6-6 6',
   'ti-list': 'M8 6h12 M8 12h12 M8 18h12 M4 6h.01 M4 12h.01 M4 18h.01',
+  'ti-check': 'M5 12l5 5L20 7',
+  'ti-alert': 'M12 9v4 M12 17h.01 M10.3 4.3L2.6 18a1.5 1.5 0 0 0 1.3 2.2h16.2a1.5 1.5 0 0 0 1.3-2.2L13.7 4.3a1.5 1.5 0 0 0-2.6 0z',
 };
 
 export function icon(name) {

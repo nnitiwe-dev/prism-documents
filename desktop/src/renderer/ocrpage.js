@@ -1,11 +1,17 @@
-// OCR workspace: pick a document, choose an engine (Tesseract bundled; others
-// are optional packs), choose language/options, and produce a searchable PDF.
+// OCR workspace: pick a document, choose an engine (and see exactly what it can
+// and can't do), choose an output format, then run.
 
 import { el, clear, icon, toast } from './ui.js';
 import { createTray } from './tray.js';
 import { dirName, baseName } from './pdfjs.js';
 
-const PDF_FILTER = [{ name: 'PDF', extensions: ['pdf'] }];
+const FMT_LABELS = {
+  'searchable-pdf': 'Searchable PDF',
+  text: 'Plain text (.txt)',
+  markdown: 'Markdown (.md)',
+  json: 'JSON (.json)',
+};
+const FMT_EXT = { 'searchable-pdf': 'pdf', text: 'txt', markdown: 'md', json: 'json' };
 
 async function api(path, options) {
   const r = await window.prism.api(path, options);
@@ -14,40 +20,35 @@ async function api(path, options) {
 }
 
 export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
-  const runBtn = el('button', { class: 'btn primary', text: 'Save & run', onClick: run, disabled: true });
-  const result = el('div', { class: 'result hidden' });
+  const runBtn = el('button', { class: 'btn primary', onClick: run, disabled: true });
+  const result = el('div', { class: 'summary-wrap hidden' });
 
   const engineSelect = el('select', {});
-  const engineNote = el('div', { class: 'engine-note', text: '' });
+  const formatSelect = el('select', {});
   const langSelect = el('select', {}, [el('option', { value: 'eng', text: 'English' })]);
   const forceCb = el('input', { type: 'checkbox' });
-  const outName = el('input', { type: 'text', class: 'out-name', value: 'searchable.pdf' });
+  const capCard = el('div', { class: 'cap-card' });
 
   const tray = createTray({ multi: false, onChange: refresh });
-
-  const options = el('div', { class: 'options' }, [
-    el('label', { class: 'opt' }, ['OCR engine', engineSelect, engineNote]),
-    el('label', { class: 'opt' }, ['Language', langSelect]),
-    el('label', { class: 'opt opt-row' }, [forceCb, el('span', { text: 'Re-OCR pages that already have text' })]),
-  ]);
+  let engines = [];
 
   const page = el('div', { class: 'page toolpage' }, [
     el('div', { class: 'toolpage-head' }, [
       el('button', { class: 'icon-btn', title: 'Back', 'aria-label': 'Back', onClick: () => onBack && onBack() }, [icon('ti-chevron-left')]),
-      el('div', {}, [el('h1', { text: tool.name }), el('p', { text: 'Add a searchable text layer so the document can be selected and searched.' })]),
+      el('div', {}, [el('h1', { text: tool.name }), el('p', { text: 'Recognize text in a scanned document — choose an engine and an output format.' })]),
     ]),
     tray.element,
-    options,
-    el('div', { class: 'runbar' }, [
-      el('label', { class: 'out-label' }, ['Save as', outName]),
-      el('div', { class: 'runbar-spacer' }),
-      runBtn,
+    el('div', { class: 'options' }, [
+      el('label', { class: 'opt' }, ['OCR engine', engineSelect]),
+      el('label', { class: 'opt' }, ['Output', formatSelect]),
+      el('label', { class: 'opt' }, ['Language', langSelect]),
+      el('label', { class: 'opt opt-row' }, [forceCb, el('span', { text: 'Re-OCR pages that already have text' })]),
     ]),
+    capCard,
+    el('div', { class: 'runbar' }, [el('div', { class: 'runbar-spacer' }), runBtn]),
     result,
   ]);
 
-  // Populate engines + languages.
-  let engines = [];
   (async () => {
     try {
       const data = await api('/system/engines', {});
@@ -55,11 +56,12 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
       clear(engineSelect);
       for (const e of engines) {
         const usable = e.status === 'available';
-        engineSelect.appendChild(el('option', { value: e.id, text: `${e.name}${usable ? '' : e.status === 'planned' ? ' (coming soon)' : ' (install required)'}`, disabled: !usable ? '' : null }));
+        const suffix = usable ? '' : e.status === 'planned' ? ' (coming soon)' : ' (install required)';
+        engineSelect.appendChild(el('option', { value: e.id, text: e.name + suffix, disabled: usable ? null : '' }));
       }
-      const first = engines.find((e) => e.status === 'available');
+      const first = engines.find((e) => e.status === 'available') || engines[0];
       if (first) engineSelect.value = first.id;
-      updateEngineNote();
+      onEngineChange();
     } catch {
       clear(engineSelect);
       engineSelect.appendChild(el('option', { value: 'tesseract', text: 'Tesseract' }));
@@ -78,15 +80,48 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
     } catch { /* keep default */ }
   })();
 
-  engineSelect.addEventListener('change', () => { updateEngineNote(); refresh(); });
+  engineSelect.addEventListener('change', onEngineChange);
+  formatSelect.addEventListener('change', updateRunLabel);
 
   function currentEngine() {
     return engines.find((e) => e.id === engineSelect.value);
   }
-  function updateEngineNote() {
+
+  function onEngineChange() {
     const e = currentEngine();
-    engineNote.textContent = e ? (e.verdict?.reason || '') : '';
+    // output formats for this engine
+    clear(formatSelect);
+    const outputs = (e && e.outputs) || ['searchable-pdf'];
+    for (const o of outputs) formatSelect.appendChild(el('option', { value: o, text: FMT_LABELS[o] || o }));
+    renderCapCard(e);
+    updateRunLabel();
+    refresh();
   }
+
+  function renderCapCard(e) {
+    clear(capCard);
+    if (!e) return;
+    capCard.appendChild(el('div', { class: 'cap-desc', text: e.description || '' }));
+    const grid = el('div', { class: 'cap-grid' });
+    for (const c of e.capabilities || []) {
+      grid.appendChild(el('div', { class: `cap-item ${c.supported ? 'yes' : 'no'}` }, [
+        icon(c.supported ? 'ti-check' : 'ti-x'),
+        el('span', { text: c.feature }),
+      ]));
+    }
+    capCard.appendChild(grid);
+    if (e.limits) capCard.appendChild(el('div', { class: 'cap-limits' }, [icon('ti-alert'), el('span', { text: e.limits })]));
+    if (e.status !== 'available') {
+      capCard.appendChild(el('div', { class: 'cap-limits warn' }, [
+        el('span', { text: e.status === 'planned' ? 'This engine is coming soon — not installable yet.' : 'This engine needs to be installed.' }),
+      ]));
+    }
+  }
+
+  function updateRunLabel() {
+    runBtn.textContent = formatSelect.value === 'searchable-pdf' ? 'Save searchable PDF' : 'Extract';
+  }
+
   function refresh() {
     const e = currentEngine();
     runBtn.disabled = tray.getItems().length < 1 || !e || e.status !== 'available';
@@ -94,25 +129,38 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
 
   async function run() {
     const items = tray.getItems();
+    const e = currentEngine();
     if (!items.length) { toast('Add a PDF first', 'error'); return; }
-    const engine = currentEngine();
-    if (!engine || engine.status !== 'available') {
-      toast('That engine isn’t available yet — pick Tesseract or install the pack.', 'error');
-      return;
-    }
-    const name = (outName.value.trim() || 'searchable.pdf').replace(/(\.pdf)?$/i, '.pdf');
-    const save = await window.prism.saveDialog({ defaultPath: `${dirName(items[0].path)}/${name}`, filters: PDF_FILTER });
+    if (!e || e.status !== 'available') { toast('That engine isn’t available yet.', 'error'); return; }
+    const fmt = formatSelect.value;
+    const ext = FMT_EXT[fmt] || 'txt';
+    const stem = baseName(items[0].path).replace(/\.pdf$/i, '');
+    const defName = fmt === 'searchable-pdf' ? `${stem}-ocr.pdf` : `${stem}.${ext}`;
+    const save = await window.prism.saveDialog({
+      defaultPath: `${dirName(items[0].path)}/${defName}`,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+    });
     if (save.canceled) return;
 
     runBtn.disabled = true;
     const prev = runBtn.textContent;
     runBtn.textContent = 'Running OCR…';
     try {
-      const res = await api('/ocr/run', { method: 'POST', body: { input: items[0].path, output: save.filePath, language: langSelect.value, force: forceCb.checked, engine: engine.id } });
+      const res = await api('/ocr/run', { method: 'POST', body: {
+        input: items[0].path, output: save.filePath, language: langSelect.value,
+        force: forceCb.checked, engine: e.id, output_format: fmt,
+      } });
       clear(result);
       result.classList.remove('hidden');
-      result.appendChild(el('span', { text: 'Done — searchable PDF saved.' }));
-      if (onOpenFile) result.appendChild(el('button', { class: 'btn', text: 'Open result', onClick: () => onOpenFile(res.output, baseName(res.output)) }));
+      if (res.format === 'text' && res.text != null) {
+        result.appendChild(el('div', { class: 'engine-meta', text: `Saved to ${baseName(res.output || save.filePath)}` }));
+        result.appendChild(el('pre', { class: 'infobox', text: res.text || '(no text found)' }));
+      } else {
+        result.appendChild(el('div', { class: 'engine-meta' }, [
+          el('span', { text: 'Searchable PDF saved. ' }),
+          onOpenFile ? el('button', { class: 'btn', text: 'Open result', onClick: () => onOpenFile(res.output, baseName(res.output)) }) : null,
+        ]));
+      }
       toast('OCR complete', 'success');
     } catch (err) {
       toast(err.message || 'OCR failed', 'error');

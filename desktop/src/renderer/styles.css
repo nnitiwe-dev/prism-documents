@@ -411,10 +411,24 @@ select, .btn {
 .pc-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
 .pc-specs { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--text-2); font-size: 12.5px; }
 .pc-specs span { white-space: nowrap; }
-.engine-card { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-2); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.engine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.engine-card { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-2); display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .engine-main { flex: 1; min-width: 0; }
-.engine-side { flex: none; display: flex; align-items: center; gap: 10px; }
-.dl-progress { flex: none; display: flex; align-items: center; gap: 8px; width: 160px; }
+.engine-side { display: flex; align-items: center; gap: 10px; }
+.dl-progress { display: flex; align-items: center; gap: 8px; width: 100%; }
+
+/* OCR engine capability / limits card */
+.cap-card { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-1); }
+.cap-desc { font-size: 12.5px; color: var(--text-1); margin-bottom: 10px; }
+.cap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; }
+.cap-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.cap-item svg { width: 15px; height: 15px; flex: none; }
+.cap-item.yes { color: var(--text-1); }
+.cap-item.yes svg { color: var(--success); }
+.cap-item.no { color: var(--text-2); }
+.cap-limits { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--text-2); }
+.cap-limits svg { width: 15px; height: 15px; color: var(--warn); flex: none; }
+.cap-limits.warn { color: var(--warn); }
 .dl-bar { flex: 1; height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden; }
 .dl-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
 .dl-pct { font-size: 11px; color: var(--text-2); min-width: 32px; text-align: right; }
