@@ -124,6 +124,8 @@ def _evaluate(
             **engine,
             "status": status,
             "installable": status == "needs-install",
+            "removable": docling_available,
+            "force_installable": status == "unsupported",
             "verdict": verdict,
         }
 

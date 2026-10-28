@@ -135,17 +135,32 @@ function verdictBadge(engine) {
   return el('span', { class: 'badge badge-red', text: 'Not recommended' });
 }
 
-function engineCard(e, install, onInstall) {
+function engineCard(e, install, onInstall, onRemove) {
+  const st = install && install.status;
   let action = null;
-  if (install && install.status === 'installing') {
+  if (st === 'installing') {
     action = el('div', { class: 'dl-progress' }, [el('span', { class: 'dl-pct', text: 'Installing…' })]);
-  } else if (install && install.status === 'error') {
+  } else if (st === 'removing') {
+    action = el('div', { class: 'dl-progress' }, [el('span', { class: 'dl-pct', text: 'Removing…' })]);
+  } else if (st === 'error') {
     action = el('div', { class: 'engine-side' }, [
-      el('span', { class: 'badge badge-red', text: 'Install failed' }),
-      el('button', { class: 'btn', text: 'Retry', onClick: () => onInstall(e.id) }),
+      el('span', { class: 'badge badge-red', text: 'Failed' }),
+      el('button', { class: 'btn', text: 'Retry', onClick: () => onInstall(e.id, { reinstall: true }) }),
+      e.removable ? el('button', { class: 'btn', text: 'Remove', onClick: () => onRemove(e.id) }) : null,
+    ]);
+  } else if (e.removable) {
+    action = el('div', { class: 'engine-side' }, [
+      el('button', { class: 'btn', text: 'Reinstall', onClick: () => onInstall(e.id, { reinstall: true }) }),
+      el('button', { class: 'btn', text: 'Remove', onClick: () => onRemove(e.id) }),
     ]);
   } else if (e.installable) {
     action = el('button', { class: 'btn primary', text: 'Install', onClick: () => onInstall(e.id) });
+  } else if (e.force_installable) {
+    action = el('button', { class: 'btn', text: 'Install anyway', onClick: () => {
+      if (window.confirm(`${e.name} isn’t supported on this machine (needs PyTorch ≥ 2.4, which has no build for this platform). Installing downloads a large package and will most likely still not run. Try anyway?`)) {
+        onInstall(e.id, { force: true, reinstall: true });
+      }
+    } });
   } else if (e.runtime === 'tesseract' && e.status === 'needs-install') {
     action = el('div', { class: 'engine-hint', text: 'System install: brew install tesseract (macOS) · apt install tesseract-ocr (Linux) · winget install tesseract (Windows)' });
   }
@@ -250,10 +265,17 @@ export function buildModels() {
     }
   });
 
-  async function installEngine(id) {
-    const r = await window.prism.api('/engines/install', { method: 'POST', body: { engine_id: id } });
+  async function installEngine(id, opts = {}) {
+    const r = await window.prism.api('/engines/install', { method: 'POST', body: { engine_id: id, reinstall: !!opts.reinstall, force: !!opts.force } });
     if (!r.ok) { toast(r.error || 'Install failed', 'error'); return; }
-    toast('Installing engine — this can take a few minutes', 'info');
+    toast('Working on the engine — this can take a few minutes', 'info');
+    renderEngines();
+  }
+
+  async function removeEngine(id) {
+    const r = await window.prism.api('/engines/remove', { method: 'POST', body: { engine_id: id } });
+    if (!r.ok) { toast(r.error || 'Remove failed', 'error'); return; }
+    toast('Removing engine…', 'info');
     renderEngines();
   }
 
@@ -273,11 +295,11 @@ export function buildModels() {
       if (!list.length) continue;
       const group = el('div', { class: 'cat-group' }, [el('h2', { text: cap.label })]);
       const grid = el('div', { class: 'engine-grid' });
-      for (const e of list) grid.appendChild(engineCard(e, installs[e.id], installEngine));
+      for (const e of list) grid.appendChild(engineCard(e, installs[e.id], installEngine, removeEngine));
       group.appendChild(grid);
       enginesWrap.appendChild(group);
     }
-    const busy = Object.values(installs).some((s) => s && s.status === 'installing');
+    const busy = Object.values(installs).some((s) => s && (s.status === 'installing' || s.status === 'removing'));
     if (busy && !ePoll) ePoll = setInterval(renderEngines, 2500);
     if (!busy && ePoll) { clearInterval(ePoll); ePoll = null; }
   }

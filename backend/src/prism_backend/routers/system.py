@@ -48,12 +48,22 @@ async def system_engines() -> dict:
 
 @router.post("/engines/install", dependencies=[Depends(verify_token)])
 async def engines_install(patch: dict | None = None) -> dict:
-    engine_id = (patch or {}).get("engine_id", "")
+    body = patch or {}
     try:
-        return engine_packs.install(engine_id)
-    except ValueError as exc:
+        return engine_packs.install(
+            body.get("engine_id", ""),
+            reinstall=bool(body.get("reinstall")),
+            force=bool(body.get("force")),
+        )
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except RuntimeError as exc:
+
+
+@router.post("/engines/remove", dependencies=[Depends(verify_token)])
+async def engines_remove(patch: dict | None = None) -> dict:
+    try:
+        return engine_packs.remove((patch or {}).get("engine_id", ""))
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
