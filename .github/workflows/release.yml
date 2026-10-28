@@ -22,9 +22,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macos-latest is Apple Silicon (arm64). Intel-Mac runners (macos-13)
+          # are being retired and queue indefinitely, so Intel .dmg is built
+          # locally instead. arm64 + Windows + Linux build reliably here.
           - os: macos-latest
-            platform: mac
-          - os: macos-13
             platform: mac
           - os: windows-latest
             platform: win
