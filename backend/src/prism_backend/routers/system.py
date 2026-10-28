@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from .. import __version__, registry
 from ..intelligence import engines
 from ..security import verify_token
-from ..services import docling_engine, hardware, models_mgr, ocr, settings_store
+from ..services import (
+    docling_engine,
+    engine_packs,
+    hardware,
+    models_mgr,
+    ocr,
+    settings_store,
+)
 
 router = APIRouter()
 
@@ -32,8 +39,27 @@ async def system_hardware() -> dict:
 async def system_engines() -> dict:
     """Capabilities and their engines, each with a per-machine verdict."""
     return engines.evaluate(
-        hardware.profile(), ocr.tesseract_available(), docling_engine.docling_available()
+        hardware.profile(),
+        ocr.tesseract_available(),
+        docling_engine.docling_available(),
+        docling_engine.supported_platform(),
     )
+
+
+@router.post("/engines/install", dependencies=[Depends(verify_token)])
+async def engines_install(patch: dict | None = None) -> dict:
+    engine_id = (patch or {}).get("engine_id", "")
+    try:
+        return engine_packs.install(engine_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/engines/install-status", dependencies=[Depends(verify_token)])
+async def engines_install_status() -> dict:
+    return engine_packs.status()
 
 
 @router.get("/settings", dependencies=[Depends(verify_token)])

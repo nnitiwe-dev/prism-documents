@@ -127,11 +127,34 @@ export function buildTools(caps, { initialFilter = 'all', onOpenTool }) {
 function verdictBadge(engine) {
   // status overrides verdict wording where relevant
   if (engine.status === 'planned') return el('span', { class: 'badge badge-muted', text: 'Coming soon' });
-  if (engine.status === 'needs-install') return el('span', { class: 'badge badge-red', text: 'Install required' });
+  if (engine.status === 'unsupported') return el('span', { class: 'badge badge-red', text: 'Not supported here' });
+  if (engine.status === 'needs-install') return el('span', { class: 'badge badge-amber', text: 'Install to enable' });
   const level = engine.verdict?.level;
   if (level === 'comfortable') return el('span', { class: 'badge badge-green', text: 'Runs comfortably' });
   if (level === 'lag') return el('span', { class: 'badge badge-amber', text: 'May lag' });
   return el('span', { class: 'badge badge-red', text: 'Not recommended' });
+}
+
+function engineCard(e, install, onInstall) {
+  let action = null;
+  if (install && install.status === 'installing') {
+    action = el('div', { class: 'dl-progress' }, [el('span', { class: 'dl-pct', text: 'Installing…' })]);
+  } else if (install && install.status === 'error') {
+    action = el('div', { class: 'engine-side' }, [
+      el('span', { class: 'badge badge-red', text: 'Install failed' }),
+      el('button', { class: 'btn', text: 'Retry', onClick: () => onInstall(e.id) }),
+    ]);
+  } else if (e.installable) {
+    action = el('button', { class: 'btn primary', text: 'Install', onClick: () => onInstall(e.id) });
+  }
+  return el('div', { class: 'engine-card' }, [
+    el('div', { class: 'engine-main' }, [
+      el('div', { class: 'engine-top' }, [el('span', { class: 'engine-name', text: e.name }), verdictBadge(e)]),
+      el('div', { class: 'engine-desc', text: e.description }),
+      el('div', { class: 'engine-meta', text: `${e.availability === 'bundled' ? 'Built in' : 'Optional download'} · ${e.license}${e.verdict?.reason ? ' · ' + e.verdict.reason : ''}` }),
+    ]),
+    action,
+  ]);
 }
 
 function capabilityIndex(h) {
@@ -202,9 +225,10 @@ export function buildModels() {
 
   let cancelled = false;
   let poll = null;
-  Promise.all([window.prism.api('/system/hardware'), window.prism.api('/system/engines')]).then(([hw, eng]) => {
-    if (cancelled) return;
+  let ePoll = null;
 
+  window.prism.api('/system/hardware').then((hw) => {
+    if (cancelled) return;
     clear(pcCard);
     if (hw.ok) {
       const h = hw.data;
@@ -222,30 +246,40 @@ export function buildModels() {
     } else {
       pcCard.appendChild(el('div', { class: 'empty', text: 'Could not read hardware (backend not ready).' }));
     }
+  });
 
+  async function installEngine(id) {
+    const r = await window.prism.api('/engines/install', { method: 'POST', body: { engine_id: id } });
+    if (!r.ok) { toast(r.error || 'Install failed', 'error'); return; }
+    toast('Installing engine — this can take a few minutes', 'info');
+    renderEngines();
+  }
+
+  async function renderEngines() {
+    const [eng, inst] = await Promise.all([
+      window.prism.api('/system/engines'), window.prism.api('/engines/install-status'),
+    ]);
+    if (cancelled) return;
     clear(enginesWrap);
     if (!eng.ok) {
       enginesWrap.appendChild(el('div', { class: 'empty', text: 'Could not load engines.' }));
       return;
     }
+    const installs = (inst.ok && inst.data.installs) || {};
     for (const cap of eng.data.capabilities) {
       const list = eng.data.engines.filter((e) => e.capability === cap.id);
       if (!list.length) continue;
       const group = el('div', { class: 'cat-group' }, [el('h2', { text: cap.label })]);
       const grid = el('div', { class: 'engine-grid' });
-      for (const e of list) {
-        grid.appendChild(el('div', { class: 'engine-card' }, [
-          el('div', { class: 'engine-main' }, [
-            el('div', { class: 'engine-top' }, [el('span', { class: 'engine-name', text: e.name }), verdictBadge(e)]),
-            el('div', { class: 'engine-desc', text: e.description }),
-            el('div', { class: 'engine-meta', text: `${e.availability === 'bundled' ? 'Built in' : 'Optional download'} · ${e.license}${e.verdict?.reason ? ' · ' + e.verdict.reason : ''}` }),
-          ]),
-        ]));
-      }
+      for (const e of list) grid.appendChild(engineCard(e, installs[e.id], installEngine));
       group.appendChild(grid);
       enginesWrap.appendChild(group);
     }
-  });
+    const busy = Object.values(installs).some((s) => s && s.status === 'installing');
+    if (busy && !ePoll) ePoll = setInterval(renderEngines, 2500);
+    if (!busy && ePoll) { clearInterval(ePoll); ePoll = null; }
+  }
+  renderEngines();
 
   async function renderModels() {
     const r = await window.prism.api('/models');
@@ -264,7 +298,7 @@ export function buildModels() {
   }
   renderModels();
 
-  return { element: page, destroy: () => { cancelled = true; if (poll) clearInterval(poll); } };
+  return { element: page, destroy: () => { cancelled = true; if (poll) clearInterval(poll); if (ePoll) clearInterval(ePoll); } };
 }
 
 export function buildSettings({ ready }) {

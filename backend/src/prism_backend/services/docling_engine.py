@@ -9,10 +9,22 @@ The converter is built lazily and cached (model load is expensive).
 from __future__ import annotations
 
 import json
+import platform
+import sys
 
 from ._common import PdfOpError, require_pdf
 
 _converter = None
+
+
+def is_frozen() -> bool:
+    """True inside a PyInstaller-packaged build (no pip/uv to install into)."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def supported_platform() -> bool:
+    """Docling needs torch >= 2.4, which has no macOS x86_64 (Intel) wheels."""
+    return not (platform.system() == "Darwin" and platform.machine() == "x86_64")
 
 
 def docling_available() -> bool:

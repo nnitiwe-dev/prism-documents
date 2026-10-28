@@ -5,6 +5,7 @@
   "description": "Open-source, local-first document intelligence — by PRISM Data Studio",
   "license": "MIT",
   "author": "Samuel Theophilus",
+  "homepage": "https://github.com/nnitiwe-dev/prism-documents",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",

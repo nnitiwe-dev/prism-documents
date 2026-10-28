@@ -65,27 +65,6 @@ ENGINES: list[dict] = [
         "fallback": True,
     },
     {
-        "id": "paddleocr-vl",
-        "capability": "ocr",
-        "name": "PaddleOCR-VL",
-        "description": "Vision model: mixed scans → Markdown, strong on tables. GPU recommended.",
-        "runtime": "python-torch",
-        "availability": "pack",
-        "requirements": {"min_ram_gb": 4, "recommends_gpu": True, "disk_mb": 1500},
-        "license": "Apache-2.0",
-        "outputs": ["markdown", "text"],
-        "capabilities": [
-            {"feature": "Searchable PDF", "supported": False},
-            {"feature": "Plain text", "supported": True},
-            {"feature": "Tables", "supported": True},
-            {"feature": "Markdown", "supported": True},
-            {"feature": "JSON fields", "supported": False},
-            {"feature": "Layout analysis", "supported": True},
-            {"feature": "Image captions", "supported": False},
-        ],
-        "limits": "Needs a GPU for good speed. Does not produce a searchable PDF.",
-    },
-    {
         "id": "docling",
         "capability": "ocr",
         "name": "Docling",
@@ -107,31 +86,16 @@ ENGINES: list[dict] = [
         "limits": "Heavy (PyTorch); slow on CPU. First run downloads models. No searchable PDF.",
         "recommended_ocr": True,
     },
-    {
-        "id": "dolphin",
-        "capability": "ocr",
-        "name": "Dolphin",
-        "description": "ByteDance analyze-then-parse model for complex layouts. GPU recommended.",
-        "runtime": "python-torch",
-        "availability": "pack",
-        "requirements": {"min_ram_gb": 6, "recommends_gpu": True, "disk_mb": 2500},
-        "license": "MIT",
-        "outputs": ["markdown", "json", "text"],
-        "capabilities": [
-            {"feature": "Searchable PDF", "supported": False},
-            {"feature": "Plain text", "supported": True},
-            {"feature": "Tables", "supported": True},
-            {"feature": "Markdown", "supported": True},
-            {"feature": "JSON fields", "supported": True},
-            {"feature": "Layout analysis", "supported": True},
-            {"feature": "Image captions", "supported": False},
-        ],
-        "limits": "GPU strongly recommended; large download.",
-    },
 ]
 
 
-def _evaluate(engine: dict, profile: dict, ocr_available: bool, docling_available: bool) -> dict:
+def _evaluate(
+    engine: dict,
+    profile: dict,
+    ocr_available: bool,
+    docling_available: bool,
+    docling_supported: bool = True,
+) -> dict:
     avail_gb = profile.get("ram_available_bytes", 0) / compat.GB
     total_gb = profile.get("ram_total_bytes", 0) / compat.GB
     has_gpu = bool(profile.get("gpu"))
@@ -141,6 +105,7 @@ def _evaluate(engine: dict, profile: dict, ocr_available: bool, docling_availabl
         return {
             **engine,
             "status": "available",
+            "installable": False,
             "verdict": {"level": compat.COMFORTABLE, "reason": "Reads the text layer instantly."},
         }
 
@@ -148,8 +113,19 @@ def _evaluate(engine: dict, profile: dict, ocr_available: bool, docling_availabl
         verdict = compat.classify(req["min_ram_gb"], avail_gb, total_gb)
         if req.get("recommends_gpu") and not has_gpu and verdict["level"] == compat.COMFORTABLE:
             verdict = {"level": compat.LAG, "reason": "Runs on CPU; slower without a GPU."}
-        status = "available" if docling_available else "needs-install"
-        return {**engine, "status": status, "verdict": verdict}
+        if docling_available:
+            status = "available"
+        elif not docling_supported:
+            status = "unsupported"
+            verdict = {"level": compat.NOT_RECOMMENDED, "reason": "Not supported on this platform (needs PyTorch >= 2.4)."}  # noqa: E501
+        else:
+            status = "needs-install"
+        return {
+            **engine,
+            "status": status,
+            "installable": status == "needs-install",
+            "verdict": verdict,
+        }
 
     if engine["runtime"] == "tesseract":
         if ocr_available:
@@ -164,12 +140,19 @@ def _evaluate(engine: dict, profile: dict, ocr_available: bool, docling_availabl
         if req.get("recommends_gpu") and not has_gpu and verdict["level"] == compat.COMFORTABLE:
             verdict = {"level": compat.LAG, "reason": "Best with a GPU; slow on CPU only."}
 
-    return {**engine, "status": status, "verdict": verdict}
+    return {**engine, "status": status, "installable": False, "verdict": verdict}
 
 
-def evaluate(profile: dict, ocr_available: bool, docling_available: bool = False) -> dict:
+def evaluate(
+    profile: dict,
+    ocr_available: bool,
+    docling_available: bool = False,
+    docling_supported: bool = True,
+) -> dict:
     """Return capabilities and their engines, each with a per-machine verdict."""
-    engines = [_evaluate(e, profile, ocr_available, docling_available) for e in ENGINES]
+    engines = [
+        _evaluate(e, profile, ocr_available, docling_available, docling_supported) for e in ENGINES
+    ]
     return {"capabilities": CAPABILITIES, "engines": engines}
 
 

@@ -6,7 +6,7 @@ copyright: Copyright © 2026 Samuel Theophilus
 # needed. Update owner/repo if the repository moves.
 publish:
   provider: github
-  owner: nnitiwe
+  owner: nnitiwe-dev
   repo: prism-documents
 
 directories:
@@ -43,6 +43,6 @@ nsis:
   allowToChangeInstallationDirectory: false
 
 linux:
-  target: [AppImage, deb]
+  target: [AppImage]
   category: Office
   artifactName: PRISM-Documents-${version}-${arch}.${ext}

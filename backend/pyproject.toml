@@ -16,7 +16,11 @@ dependencies = [
     "pytesseract>=0.3.13",
     "pypdfium2>=4.30",
     "pillow>=10.0",
-    "llama-cpp-python==0.3.2",
+    # llama-cpp-python wheels are split by Mac arch: only 0.3.2 has a macOS
+    # x86_64 (Intel) wheel, and only newer builds have macOS arm64. Pin per
+    # platform so every target resolves to a version with a wheel.
+    "llama-cpp-python==0.3.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "llama-cpp-python==0.3.36 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 
 [project.scripts]
@@ -24,6 +28,15 @@ prism-backend = "prism_backend.__main__:main"
 
 # llama-cpp-python ships prebuilt CPU wheels on its own index (avoids a source
 # build). Pin it there so `uv sync` never tries to compile it.
+[tool.uv]
+# Ensure the lock has wheels for every target (both Mac arches especially).
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
 [[tool.uv.index]]
 name = "llama-cpp-cpu"
 url = "https://abetlen.github.io/llama-cpp-python/whl/cpu"

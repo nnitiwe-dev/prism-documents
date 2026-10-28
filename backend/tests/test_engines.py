@@ -26,20 +26,25 @@ def test_tesseract_needs_install_when_absent():
     assert tess["status"] == "needs-install"
 
 
-def test_pack_engines_are_planned_with_verdict():
-    out = engines.evaluate(PROFILE, ocr_available=True)
-    dolphin = next(e for e in out["engines"] if e["id"] == "dolphin")
-    assert dolphin["status"] == "planned"
-    assert "level" in dolphin["verdict"]
+def test_text_layer_always_available():
+    out = engines.evaluate(PROFILE, ocr_available=False)
+    tl = next(e for e in out["engines"] if e["id"] == "text-layer")
+    assert tl["status"] == "available"
+    assert tl["verdict"]["level"] == "comfortable"
 
 
-def test_docling_status_follows_availability():
-    out = engines.evaluate(PROFILE, ocr_available=True, docling_available=True)
-    doc = next(e for e in out["engines"] if e["id"] == "docling")
+def test_docling_status_follows_availability_and_platform():
+    installed = engines.evaluate(PROFILE, True, docling_available=True, docling_supported=True)
+    doc = next(e for e in installed["engines"] if e["id"] == "docling")
     assert doc["status"] == "available"
-    out2 = engines.evaluate(PROFILE, ocr_available=True, docling_available=False)
-    doc2 = next(e for e in out2["engines"] if e["id"] == "docling")
-    assert doc2["status"] == "needs-install"
+
+    missing = engines.evaluate(PROFILE, True, docling_available=False, docling_supported=True)
+    doc2 = next(e for e in missing["engines"] if e["id"] == "docling")
+    assert doc2["status"] == "needs-install" and doc2["installable"] is True
+
+    unsupported = engines.evaluate(PROFILE, True, docling_available=False, docling_supported=False)
+    doc3 = next(e for e in unsupported["engines"] if e["id"] == "docling")
+    assert doc3["status"] == "unsupported" and doc3["installable"] is False
 
 
 def test_ocr_service_probes_are_typed():
