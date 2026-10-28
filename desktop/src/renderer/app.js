@@ -6,6 +6,7 @@ import { getRecent, removeRecent, clearRecent } from './store.js';
 import { buildHome, buildTools, buildModels, buildSettings } from './views.js';
 import { buildViewer } from './viewer.js';
 import { buildToolPage } from './toolpage.js';
+import { buildOcrPage } from './ocrpage.js';
 import { runTool } from './ops.js';
 import { initPalette } from './palette.js';
 import { FALLBACK_CAPABILITIES } from './registry-fallback.js';
@@ -44,7 +45,9 @@ function handleTool(tool) {
 }
 
 function openToolPage(tool) {
-  mount(buildToolPage(tool, { onBack: () => navigate(state.view), onOpenFile: openFile }), 'tool');
+  const opts = { onBack: () => navigate(state.view), onOpenFile: openFile };
+  const builder = tool.id === 'ocr' ? buildOcrPage : buildToolPage;
+  mount(builder(tool, opts), 'tool');
 }
 
 function openFile(path, name) {

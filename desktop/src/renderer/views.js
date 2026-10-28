@@ -130,32 +130,82 @@ export function buildTools(caps, { initialFilter = 'all', onOpenTool }) {
   return { element: page, destroy: () => {} };
 }
 
+function verdictBadge(engine) {
+  // status overrides verdict wording where relevant
+  if (engine.status === 'planned') return el('span', { class: 'badge badge-muted', text: 'Coming soon' });
+  if (engine.status === 'needs-install') return el('span', { class: 'badge badge-red', text: 'Install required' });
+  const level = engine.verdict?.level;
+  if (level === 'comfortable') return el('span', { class: 'badge badge-green', text: 'Runs comfortably' });
+  if (level === 'lag') return el('span', { class: 'badge badge-amber', text: 'May lag' });
+  return el('span', { class: 'badge badge-red', text: 'Not recommended' });
+}
+
+function capabilityIndex(h) {
+  const ramGb = h.ram_total_bytes / 1024 ** 3;
+  const gpu = h.gpu;
+  if (gpu && ramGb >= 16) return 'Can run mid-size models with acceleration';
+  if (ramGb >= 16) return 'Good for small–mid models (CPU)';
+  if (ramGb >= 8) return 'Good for small models';
+  return 'Best with the lightest models';
+}
+
 export function buildModels() {
+  const gb = (b) => (b / 1024 ** 3).toFixed(1) + ' GB';
   const page = el('div', { class: 'page' });
   page.appendChild(el('div', { class: 'page-head' }, [
-    el('div', {}, [el('h1', { text: 'Models' }), el('p', { text: 'Your machine, and what it can run. On-device model recommendations arrive in a later phase.' })]),
+    el('div', {}, [el('h1', { text: 'Models' }), el('p', { text: 'Your machine, and which engines it can run.' })]),
   ]));
-  const box = el('pre', { class: 'infobox', text: 'Reading your hardware…' });
-  page.appendChild(box);
+
+  const pcCard = el('div', { class: 'pc-card' }, [el('div', { class: 'empty', text: 'Reading your hardware…' })]);
+  page.appendChild(pcCard);
+  page.appendChild(el('div', { class: 'section-bar' }, [el('h2', { text: 'Engines' })]));
+  const enginesWrap = el('div', {});
+  page.appendChild(enginesWrap);
+
   let cancelled = false;
-  window.prism.api('/system/hardware').then((r) => {
+  Promise.all([window.prism.api('/system/hardware'), window.prism.api('/system/engines')]).then(([hw, eng]) => {
     if (cancelled) return;
-    if (r.ok) {
-      const h = r.data;
-      const gb = (b) => (b / 1024 ** 3).toFixed(1) + ' GB';
-      box.textContent = [
-        `OS:        ${h.os} ${h.os_version} (${h.arch})`,
-        `CPU:       ${h.cpu}`,
-        `Cores:     ${h.cpu_cores_physical} physical / ${h.cpu_cores_logical} logical`,
-        `Memory:    ${gb(h.ram_total_bytes)} total · ${gb(h.ram_available_bytes)} available`,
-        `Disk free: ${gb(h.disk_free_bytes)}`,
-        '',
-        'GPU detection and model compatibility scoring are planned for Phase 2.',
-      ].join('\n');
+
+    clear(pcCard);
+    if (hw.ok) {
+      const h = hw.data;
+      pcCard.appendChild(el('div', { class: 'pc-icon' }, [icon('ti-cpu')]));
+      pcCard.appendChild(el('div', { class: 'pc-body' }, [
+        el('div', { class: 'pc-title', text: capabilityIndex(h) }),
+        el('div', { class: 'pc-specs' }, [
+          el('span', { text: `${h.cpu_cores_physical}-core CPU` }),
+          el('span', { text: `${gb(h.ram_available_bytes)} free of ${gb(h.ram_total_bytes)} RAM` }),
+          el('span', { text: h.gpu ? (h.gpu.name || 'GPU') : 'No dedicated GPU' }),
+          el('span', { text: `${gb(h.disk_free_bytes)} disk free` }),
+          el('span', { text: `${h.os} (${h.arch})` }),
+        ]),
+      ]));
     } else {
-      box.textContent = 'Could not read hardware (backend not ready).';
+      pcCard.appendChild(el('div', { class: 'empty', text: 'Could not read hardware (backend not ready).' }));
+    }
+
+    clear(enginesWrap);
+    if (!eng.ok) {
+      enginesWrap.appendChild(el('div', { class: 'empty', text: 'Could not load engines.' }));
+      return;
+    }
+    for (const cap of eng.data.capabilities) {
+      const list = eng.data.engines.filter((e) => e.capability === cap.id);
+      if (!list.length) continue;
+      const group = el('div', { class: 'cat-group' }, [el('h2', { text: cap.label })]);
+      for (const e of list) {
+        group.appendChild(el('div', { class: 'engine-card' }, [
+          el('div', { class: 'engine-main' }, [
+            el('div', { class: 'engine-top' }, [el('span', { class: 'engine-name', text: e.name }), verdictBadge(e)]),
+            el('div', { class: 'engine-desc', text: e.description }),
+            el('div', { class: 'engine-meta', text: `${e.availability === 'bundled' ? 'Built in' : 'Optional download'} · ${e.license}${e.verdict?.reason ? ' · ' + e.verdict.reason : ''}` }),
+          ]),
+        ]));
+      }
+      enginesWrap.appendChild(group);
     }
   });
+
   return { element: page, destroy: () => { cancelled = true; } };
 }
 

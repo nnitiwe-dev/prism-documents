@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from . import __version__
 from .config import Settings
-from .routers import pdf, system
+from .routers import ocr, pdf, system
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -14,4 +14,5 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.settings = settings
     app.include_router(system.router)
     app.include_router(pdf.router)
+    app.include_router(ocr.router)
     return app

@@ -56,6 +56,20 @@ class PathIn(BaseModel):
     path: str
 
 
+class OcrIn(BaseModel):
+    input: str
+    output: str
+    language: str = "eng"
+    force: bool = Field(default=False, description="Re-OCR pages that already have text")
+    engine: str = "tesseract"
+
+
+class OcrResult(BaseModel):
+    output: str
+    language: str
+    pages_ocred: int = 0
+
+
 class PdfInfo(BaseModel):
     path: str
     pages: int

@@ -27,6 +27,6 @@ export const FALLBACK_CAPABILITIES = {
     { id: 'annotate', name: 'Highlight & notes', description: 'Highlight, underline, draw, and add notes.', category: 'annotate', icon: 'ti-highlight', execution: 'client', status: 'planned' },
     { id: 'fill-form', name: 'Fill form', description: 'Fill standard (AcroForm) PDF form fields.', category: 'forms-signing', icon: 'ti-forms', execution: 'backend', status: 'planned' },
     { id: 'sign', name: 'Sign', description: 'Add a visible signature image or drawing.', category: 'forms-signing', icon: 'ti-signature', execution: 'client', status: 'planned' },
-    { id: 'ocr', name: 'OCR scan', description: 'Make a scanned PDF searchable.', category: 'extraction', icon: 'ti-scan', execution: 'backend', status: 'planned' },
+    { id: 'ocr', name: 'OCR scan', description: 'Make a scanned PDF searchable (selectable text).', category: 'extraction', icon: 'ti-scan', execution: 'backend', endpoint: '/ocr/run', status: 'ready' },
   ],
 };

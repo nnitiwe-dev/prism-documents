@@ -124,11 +124,12 @@ TOOLS: list[dict] = [
     {
         "id": "ocr",
         "name": "OCR scan",
-        "description": "Make a scanned PDF searchable.",
+        "description": "Make a scanned PDF searchable (selectable text).",
         "category": "extraction",
         "icon": "ti-scan",
         "execution": "backend",
-        "status": "planned",
+        "endpoint": "/ocr/run",
+        "status": "ready",
     },
 ]
 

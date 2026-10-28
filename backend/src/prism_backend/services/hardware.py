@@ -9,9 +9,30 @@ from __future__ import annotations
 
 import platform
 import shutil
+import subprocess
 from pathlib import Path
 
 import psutil
+
+
+def _detect_gpu() -> dict | None:
+    """Best-effort GPU detection. Conservative: only report what we can confirm."""
+    system = platform.system()
+    if system == "Darwin" and platform.machine() == "arm64":
+        # Apple Silicon: Metal GPU with unified memory.
+        return {"type": "apple-metal", "name": "Apple Silicon GPU", "unified_memory": True}
+    if shutil.which("nvidia-smi"):
+        try:
+            out = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=5, check=False,
+            )
+            line = out.stdout.strip().splitlines()[0]
+            name, vram_mb = (x.strip() for x in line.split(","))
+            return {"type": "cuda", "name": name, "vram_mb": int(float(vram_mb))}
+        except Exception:
+            return {"type": "cuda", "name": "NVIDIA GPU"}
+    return None
 
 
 def profile() -> dict:
@@ -30,5 +51,5 @@ def profile() -> dict:
         "ram_total_bytes": vm.total,
         "ram_available_bytes": vm.available,
         "disk_free_bytes": disk_free,
-        "gpu": None,  # populated in Phase 2
+        "gpu": _detect_gpu(),
     }
