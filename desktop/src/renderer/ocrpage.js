@@ -35,7 +35,7 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
   const page = el('div', { class: 'page toolpage' }, [
     el('div', { class: 'toolpage-head' }, [
       el('button', { class: 'icon-btn', title: 'Back', 'aria-label': 'Back', onClick: () => onBack && onBack() }, [icon('ti-chevron-left')]),
-      el('div', {}, [el('h1', { text: tool.name }), el('p', { text: 'Recognize text in a scanned document — choose an engine and an output format.' })]),
+      el('div', {}, [el('h1', { text: tool.name }), el('p', { text: 'Get the text out of a document — read its text layer, or OCR a scan. Pick a method and output.' })]),
     ]),
     tray.element,
     el('div', { class: 'options' }, [
@@ -59,7 +59,8 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
         const suffix = usable ? '' : e.status === 'planned' ? ' (coming soon)' : ' (install required)';
         engineSelect.appendChild(el('option', { value: e.id, text: e.name + suffix, disabled: usable ? null : '' }));
       }
-      const first = engines.find((e) => e.status === 'available') || engines[0];
+      const avail = engines.filter((e) => e.status === 'available');
+      const first = avail.find((e) => e.default) || avail[0] || engines[0];
       if (first) engineSelect.value = first.id;
       onEngineChange();
     } catch {
@@ -131,43 +132,70 @@ export function buildOcrPage(tool, { onBack, onOpenFile } = {}) {
     const items = tray.getItems();
     const e = currentEngine();
     if (!items.length) { toast('Add a PDF first', 'error'); return; }
-    if (!e || e.status !== 'available') { toast('That engine isn’t available yet.', 'error'); return; }
+    if (!e || e.status !== 'available') { toast('That method isn’t available yet.', 'error'); return; }
     const fmt = formatSelect.value;
-    const ext = FMT_EXT[fmt] || 'txt';
-    const stem = baseName(items[0].path).replace(/\.pdf$/i, '');
-    const defName = fmt === 'searchable-pdf' ? `${stem}-ocr.pdf` : `${stem}.${ext}`;
-    const save = await window.prism.saveDialog({
-      defaultPath: `${dirName(items[0].path)}/${defName}`,
-      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
-    });
-    if (save.canceled) return;
+    const isPdf = fmt === 'searchable-pdf';
+
+    let output = null;
+    if (isPdf) {
+      const stem = baseName(items[0].path).replace(/\.pdf$/i, '');
+      const save = await window.prism.saveDialog({
+        defaultPath: `${dirName(items[0].path)}/${stem}-ocr.pdf`,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+      if (save.canceled) return;
+      output = save.filePath;
+    }
 
     runBtn.disabled = true;
     const prev = runBtn.textContent;
-    runBtn.textContent = 'Running OCR…';
+    runBtn.textContent = 'Working…';
     try {
       const res = await api('/ocr/run', { method: 'POST', body: {
-        input: items[0].path, output: save.filePath, language: langSelect.value,
+        input: items[0].path, output, language: langSelect.value,
         force: forceCb.checked, engine: e.id, output_format: fmt,
       } });
-      clear(result);
-      result.classList.remove('hidden');
-      if (res.format === 'text' && res.text != null) {
-        result.appendChild(el('div', { class: 'engine-meta', text: `Saved to ${baseName(res.output || save.filePath)}` }));
-        result.appendChild(el('pre', { class: 'infobox', text: res.text || '(no text found)' }));
-      } else {
-        result.appendChild(el('div', { class: 'engine-meta' }, [
-          el('span', { text: 'Searchable PDF saved. ' }),
-          onOpenFile ? el('button', { class: 'btn', text: 'Open result', onClick: () => onOpenFile(res.output, baseName(res.output)) }) : null,
-        ]));
-      }
-      toast('OCR complete', 'success');
+      showResult(res, fmt, items[0].path);
+      toast('Done', 'success');
     } catch (err) {
-      toast(err.message || 'OCR failed', 'error');
+      toast(err.message || 'Failed', 'error');
     } finally {
       runBtn.textContent = prev;
       refresh();
     }
+  }
+
+  function showResult(res, fmt, inputPath) {
+    clear(result);
+    result.classList.remove('hidden');
+    if (res.text != null) {
+      result.appendChild(el('div', { class: 'result-actions' }, [
+        el('button', { class: 'btn', text: 'Copy', onClick: async () => {
+          try { await navigator.clipboard.writeText(res.text); toast('Copied to clipboard', 'success'); }
+          catch { toast('Copy failed', 'error'); }
+        } }),
+        el('button', { class: 'btn', text: 'Save…', onClick: () => saveText(res.text, fmt, inputPath) }),
+      ]));
+      result.appendChild(el('pre', { class: 'infobox', text: res.text || '(no text found)' }));
+    } else {
+      result.appendChild(el('div', { class: 'engine-meta' }, [
+        el('span', { text: 'Searchable PDF saved. ' }),
+        onOpenFile ? el('button', { class: 'btn', text: 'Open result', onClick: () => onOpenFile(res.output, baseName(res.output)) }) : null,
+      ]));
+    }
+  }
+
+  async function saveText(text, fmt, inputPath) {
+    const ext = FMT_EXT[fmt] || 'txt';
+    const stem = baseName(inputPath).replace(/\.pdf$/i, '');
+    const save = await window.prism.saveDialog({
+      defaultPath: `${dirName(inputPath)}/${stem}.${ext}`,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+    });
+    if (save.canceled) return;
+    const r = await window.prism.writeFile(save.filePath, text);
+    if (r && r.ok) toast(`Saved ${baseName(save.filePath)}`, 'success');
+    else toast('Save failed', 'error');
   }
 
   return { element: page, destroy: () => tray.destroy() };

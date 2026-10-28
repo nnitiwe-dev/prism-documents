@@ -3,7 +3,7 @@ name = "prism-backend"
 version = "0.1.0"
 description = "Local-first document intelligence backend for PRISM Documents"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "Samuel Theophilus" }]
 dependencies = [
@@ -39,6 +39,11 @@ dev = [
     "httpx>=0.27",
     "ruff>=0.6",
 ]
+# Docling (layout + tables → Markdown/JSON) is installed as a separate runtime
+# engine pack, NOT a locked dependency: it pulls PyTorch, and pinning it in the
+# universal lock would cap torch to the oldest platform's version (Intel-Mac
+# torch 2.2.2), breaking it everywhere. Install on a supported platform with:
+#   uv pip install docling     (needs torch >= 2.4; no Intel-Mac wheels)
 
 [build-system]
 requires = ["hatchling"]

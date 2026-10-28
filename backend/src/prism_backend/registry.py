@@ -85,12 +85,12 @@ TOOLS: list[dict] = [
     },
     {
         "id": "extract-text",
-        "name": "Extract text",
-        "description": "Pull selectable text out of a PDF, page by page.",
+        "name": "Extract text & OCR",
+        "description": "Read the text layer or OCR scans; export to text, JSON or Markdown.",
         "category": "extraction",
         "icon": "ti-text-recognition",
         "execution": "backend",
-        "endpoint": "/pdf/extract-text",
+        "endpoint": "/ocr/run",
         "status": "ready",
     },
     {
@@ -120,16 +120,6 @@ TOOLS: list[dict] = [
         "icon": "ti-signature",
         "execution": "client",
         "status": "planned",
-    },
-    {
-        "id": "ocr",
-        "name": "OCR scan",
-        "description": "Make a scanned PDF searchable (selectable text).",
-        "category": "extraction",
-        "icon": "ti-scan",
-        "execution": "backend",
-        "endpoint": "/ocr/run",
-        "status": "ready",
     },
     {
         "id": "summarize",

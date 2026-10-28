@@ -28,9 +28,18 @@ def test_tesseract_needs_install_when_absent():
 
 def test_pack_engines_are_planned_with_verdict():
     out = engines.evaluate(PROFILE, ocr_available=True)
+    dolphin = next(e for e in out["engines"] if e["id"] == "dolphin")
+    assert dolphin["status"] == "planned"
+    assert "level" in dolphin["verdict"]
+
+
+def test_docling_status_follows_availability():
+    out = engines.evaluate(PROFILE, ocr_available=True, docling_available=True)
     doc = next(e for e in out["engines"] if e["id"] == "docling")
-    assert doc["status"] == "planned"
-    assert "level" in doc["verdict"]
+    assert doc["status"] == "available"
+    out2 = engines.evaluate(PROFILE, ocr_available=True, docling_available=False)
+    doc2 = next(e for e in out2["engines"] if e["id"] == "docling")
+    assert doc2["status"] == "needs-install"
 
 
 def test_ocr_service_probes_are_typed():

@@ -31,6 +31,11 @@ function registerIpc(sidecar, getWindow) {
     const buf = await fs.readFile(filePath);
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   });
+
+  ipcMain.handle('prism:writeFile', async (_event, { path, contents }) => {
+    await fs.writeFile(path, contents, 'utf-8');
+    return { ok: true };
+  });
 }
 
 module.exports = { registerIpc };

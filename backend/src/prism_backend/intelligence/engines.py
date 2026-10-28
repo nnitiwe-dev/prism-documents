@@ -12,7 +12,7 @@ from __future__ import annotations
 from . import compat
 
 CAPABILITIES: list[dict] = [
-    {"id": "ocr", "label": "OCR / text recognition"},
+    {"id": "ocr", "label": "Text extraction & OCR"},
     {"id": "extraction", "label": "Structured extraction"},
     {"id": "summarize", "label": "Summarize & Q&A"},
 ]
@@ -20,6 +20,28 @@ CAPABILITIES: list[dict] = [
 # availability: "bundled" (ships / uses a system tool) | "pack" (on-demand download)
 # status is derived at runtime (available / needs-install / planned).
 ENGINES: list[dict] = [
+    {
+        "id": "text-layer",
+        "capability": "ocr",
+        "name": "Text layer (fast)",
+        "description": "Reads text already embedded in a PDF — instant and exact. Not for scans.",
+        "runtime": "pdfplumber",
+        "availability": "bundled",
+        "requirements": {"min_ram_gb": 0.2, "recommends_gpu": False, "disk_mb": 0},
+        "license": "MIT",
+        "outputs": ["text", "json"],
+        "capabilities": [
+            {"feature": "Searchable PDF", "supported": False},
+            {"feature": "Plain text", "supported": True},
+            {"feature": "Tables", "supported": False},
+            {"feature": "Markdown", "supported": False},
+            {"feature": "JSON fields", "supported": True},
+            {"feature": "Layout analysis", "supported": False},
+            {"feature": "Image captions", "supported": False},
+        ],
+        "limits": "Only reads existing text. Scans (image-only pages) need an OCR engine.",
+        "default": True,
+    },
     {
         "id": "tesseract",
         "capability": "ocr",
@@ -40,7 +62,7 @@ ENGINES: list[dict] = [
             {"feature": "Image captions", "supported": False},
         ],
         "limits": "Best on clean printed text. No tables, Markdown, layout or image understanding.",
-        "default": True,
+        "fallback": True,
     },
     {
         "id": "paddleocr-vl",
@@ -82,7 +104,8 @@ ENGINES: list[dict] = [
             {"feature": "Layout analysis", "supported": True},
             {"feature": "Image captions", "supported": False},
         ],
-        "limits": "Heavy (PyTorch); slow on CPU. No searchable-PDF output.",
+        "limits": "Heavy (PyTorch); slow on CPU. First run downloads models. No searchable PDF.",
+        "recommended_ocr": True,
     },
     {
         "id": "dolphin",
@@ -108,11 +131,25 @@ ENGINES: list[dict] = [
 ]
 
 
-def _evaluate(engine: dict, profile: dict, ocr_available: bool) -> dict:
+def _evaluate(engine: dict, profile: dict, ocr_available: bool, docling_available: bool) -> dict:
     avail_gb = profile.get("ram_available_bytes", 0) / compat.GB
     total_gb = profile.get("ram_total_bytes", 0) / compat.GB
     has_gpu = bool(profile.get("gpu"))
     req = engine["requirements"]
+
+    if engine["runtime"] == "pdfplumber":
+        return {
+            **engine,
+            "status": "available",
+            "verdict": {"level": compat.COMFORTABLE, "reason": "Reads the text layer instantly."},
+        }
+
+    if engine["id"] == "docling":
+        verdict = compat.classify(req["min_ram_gb"], avail_gb, total_gb)
+        if req.get("recommends_gpu") and not has_gpu and verdict["level"] == compat.COMFORTABLE:
+            verdict = {"level": compat.LAG, "reason": "Runs on CPU; slower without a GPU."}
+        status = "available" if docling_available else "needs-install"
+        return {**engine, "status": status, "verdict": verdict}
 
     if engine["runtime"] == "tesseract":
         if ocr_available:
@@ -130,9 +167,9 @@ def _evaluate(engine: dict, profile: dict, ocr_available: bool) -> dict:
     return {**engine, "status": status, "verdict": verdict}
 
 
-def evaluate(profile: dict, ocr_available: bool) -> dict:
+def evaluate(profile: dict, ocr_available: bool, docling_available: bool = False) -> dict:
     """Return capabilities and their engines, each with a per-machine verdict."""
-    engines = [_evaluate(e, profile, ocr_available) for e in ENGINES]
+    engines = [_evaluate(e, profile, ocr_available, docling_available) for e in ENGINES]
     return {"capabilities": CAPABILITIES, "engines": engines}
 
 

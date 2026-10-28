@@ -47,7 +47,7 @@ function handleTool(tool) {
 
 function openToolPage(tool) {
   const opts = { onBack: () => navigate(state.view), onOpenFile: openFile };
-  const builder = tool.id === 'ocr' ? buildOcrPage : tool.id === 'summarize' ? buildLlmPage : buildToolPage;
+  const builder = tool.id === 'extract-text' ? buildOcrPage : tool.id === 'summarize' ? buildLlmPage : buildToolPage;
   mount(builder(tool, opts), 'tool');
 }
 

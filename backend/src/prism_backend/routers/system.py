@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from .. import __version__, registry
 from ..intelligence import engines
 from ..security import verify_token
-from ..services import hardware, ocr
+from ..services import docling_engine, hardware, ocr
 
 router = APIRouter()
 
@@ -31,4 +31,6 @@ async def system_hardware() -> dict:
 @router.get("/system/engines", dependencies=[Depends(verify_token)])
 async def system_engines() -> dict:
     """Capabilities and their engines, each with a per-machine verdict."""
-    return engines.evaluate(hardware.profile(), ocr.tesseract_available())
+    return engines.evaluate(
+        hardware.profile(), ocr.tesseract_available(), docling_engine.docling_available()
+    )

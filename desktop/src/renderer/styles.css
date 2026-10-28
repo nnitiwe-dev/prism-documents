@@ -434,6 +434,7 @@ select, .btn {
 .dl-pct { font-size: 11px; color: var(--text-2); min-width: 32px; text-align: right; }
 .summary-wrap { margin-top: 16px; }
 .summary-wrap .infobox { margin-top: 6px; }
+.result-actions { display: flex; gap: 8px; margin-bottom: 8px; }
 .engine-top { display: flex; align-items: center; gap: 10px; }
 .engine-name { font-size: 14px; font-weight: 500; }
 .engine-desc { font-size: 12.5px; color: var(--text-1); margin-top: 4px; }
