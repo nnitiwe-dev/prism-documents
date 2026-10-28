@@ -24,7 +24,6 @@ export const FALLBACK_CAPABILITIES = {
     { id: 'reorder', name: 'Reorder pages', description: 'Rearrange the pages of a PDF.', category: 'organize-edit', icon: 'ti-arrows-sort', execution: 'backend', endpoint: '/pdf/reorder', status: 'ready' },
     { id: 'rotate', name: 'Rotate pages', description: 'Rotate selected pages by 90, 180, or 270 degrees.', category: 'organize-edit', icon: 'ti-rotate-clockwise', execution: 'backend', endpoint: '/pdf/rotate', status: 'ready' },
     { id: 'extract-text', name: 'Extract text', description: 'Pull selectable text out of a PDF, page by page.', category: 'extraction', icon: 'ti-text-recognition', execution: 'backend', endpoint: '/pdf/extract-text', status: 'ready' },
-    { id: 'export', name: 'Export PDF', description: 'Save a modified copy of the document.', category: 'convert-export', icon: 'ti-download', execution: 'backend', endpoint: '/pdf/merge', status: 'ready' },
     { id: 'annotate', name: 'Highlight & notes', description: 'Highlight, underline, draw, and add notes.', category: 'annotate', icon: 'ti-highlight', execution: 'client', status: 'planned' },
     { id: 'fill-form', name: 'Fill form', description: 'Fill standard (AcroForm) PDF form fields.', category: 'forms-signing', icon: 'ti-forms', execution: 'backend', status: 'planned' },
     { id: 'sign', name: 'Sign', description: 'Add a visible signature image or drawing.', category: 'forms-signing', icon: 'ti-signature', execution: 'client', status: 'planned' },

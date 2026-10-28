@@ -3,7 +3,30 @@
 Installers are distributed through **GitHub Releases** — no separate server or
 CDN is needed, and it doubles as the feed for in-app auto-update.
 
-## TL;DR — the recommended way (automated)
+## ⚠️ You cannot cross-build from one machine
+
+The Python backend is compiled by **PyInstaller into a native, OS-specific
+binary** (a macOS build yields a Mach-O that will not run on Windows or Linux).
+Electron can cross-package the shell, but it will just bundle whatever backend
+binary is on disk — so a Windows/Linux installer built on a Mac ships a **Mac**
+backend and fails to start. Each platform's backend must be built **on that
+platform**.
+
+## TL;DR — the recommended way (CI, builds all three)
+
+Push a version tag; the **`.github/workflows/release.yml`** matrix builds the
+backend + installer natively on macOS, Windows, and Linux runners and publishes
+them (plus the `latest*.yml` / `.blockmap` auto-update metadata) to a draft
+release — no physical Windows/Linux machines needed.
+
+```bash
+# bump versions + changelog first (see checklist), then:
+git tag v0.1.1 && git push origin v0.1.1
+```
+
+Review the draft release it creates, then publish.
+
+## Manual, single-OS way (automated publish)
 
 Let `electron-builder` build **and** publish in one step. It uploads the
 installers *and* the auto-update metadata, and creates/updates the GitHub

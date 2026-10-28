@@ -94,16 +94,6 @@ TOOLS: list[dict] = [
         "status": "ready",
     },
     {
-        "id": "export",
-        "name": "Export PDF",
-        "description": "Save a modified copy of the document.",
-        "category": "convert-export",
-        "icon": "ti-download",
-        "execution": "backend",
-        "endpoint": "/pdf/merge",
-        "status": "ready",
-    },
-    {
         "id": "annotate",
         "name": "Highlight & notes",
         "description": "Highlight, underline, draw, and add notes.",

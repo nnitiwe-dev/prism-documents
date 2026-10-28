@@ -1,0 +1,73 @@
+name: Release
+
+# Builds the app natively on each OS and publishes installers to a GitHub
+# Release. This is required because the Python backend is compiled by PyInstaller
+# into a NATIVE, OS-specific binary that CANNOT be cross-compiled — a macOS build
+# produces a macOS backend, which will not run on Windows or Linux.
+#
+# Trigger by pushing a version tag, e.g.:  git tag v0.1.1 && git push origin v0.1.1
+# (or run manually from the Actions tab).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build backend (native PyInstaller binary for this OS)
+        working-directory: backend
+        run: |
+          uv sync
+          uv run --with pyinstaller pyinstaller \
+            --noconfirm --clean --name prism-backend \
+            --paths src \
+            --collect-submodules prism_backend \
+            --collect-submodules uvicorn \
+            --collect-all pdfplumber \
+            --collect-all pdfminer \
+            --collect-all pypdf \
+            --hidden-import uvicorn.loops.auto \
+            --hidden-import uvicorn.protocols.http.auto \
+            --hidden-import uvicorn.protocols.websockets.auto \
+            --hidden-import uvicorn.lifespan.on \
+            src/prism_backend/__main__.py
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Build and publish installer
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No signing certs yet: don't let electron-builder try to sign on mac.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx --no-install electron-builder --${{ matrix.platform }} --publish always

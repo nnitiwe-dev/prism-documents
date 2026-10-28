@@ -43,13 +43,6 @@ const CONFIG = {
       return { message: `Merged ${items.length} files → ${res.pages} pages`, openPath: output };
     },
   },
-  export: {
-    multi: false, minFiles: 1, output: 'file', defaultName: 'copy.pdf',
-    run: async (items, _o, output) => {
-      const res = await api('/pdf/merge', { inputs: [items[0].path], output });
-      return { message: `Saved a copy (${res.pages} pages)`, openPath: output };
-    },
-  },
   rotate: {
     multi: false, minFiles: 1, output: 'file', defaultName: 'rotated.pdf',
     options: [
