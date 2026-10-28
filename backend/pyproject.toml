@@ -16,10 +16,21 @@ dependencies = [
     "pytesseract>=0.3.13",
     "pypdfium2>=4.30",
     "pillow>=10.0",
+    "llama-cpp-python==0.3.2",
 ]
 
 [project.scripts]
 prism-backend = "prism_backend.__main__:main"
+
+# llama-cpp-python ships prebuilt CPU wheels on its own index (avoids a source
+# build). Pin it there so `uv sync` never tries to compile it.
+[[tool.uv.index]]
+name = "llama-cpp-cpu"
+url = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+llama-cpp-python = { index = "llama-cpp-cpu" }
 
 [project.optional-dependencies]
 dev = [

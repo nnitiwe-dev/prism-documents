@@ -28,5 +28,6 @@ export const FALLBACK_CAPABILITIES = {
     { id: 'fill-form', name: 'Fill form', description: 'Fill standard (AcroForm) PDF form fields.', category: 'forms-signing', icon: 'ti-forms', execution: 'backend', status: 'planned' },
     { id: 'sign', name: 'Sign', description: 'Add a visible signature image or drawing.', category: 'forms-signing', icon: 'ti-signature', execution: 'client', status: 'planned' },
     { id: 'ocr', name: 'OCR scan', description: 'Make a scanned PDF searchable (selectable text).', category: 'extraction', icon: 'ti-scan', execution: 'backend', endpoint: '/ocr/run', status: 'ready' },
+    { id: 'summarize', name: 'Summarize', description: 'Summarize a document with a local AI model.', category: 'content-understanding', icon: 'ti-file-text', execution: 'backend', endpoint: '/llm/summarize', status: 'ready' },
   ],
 };

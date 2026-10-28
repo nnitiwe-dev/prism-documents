@@ -131,6 +131,16 @@ TOOLS: list[dict] = [
         "endpoint": "/ocr/run",
         "status": "ready",
     },
+    {
+        "id": "summarize",
+        "name": "Summarize",
+        "description": "Summarize a document with a local AI model.",
+        "category": "content-understanding",
+        "icon": "ti-file-text",
+        "execution": "backend",
+        "endpoint": "/llm/summarize",
+        "status": "ready",
+    },
 ]
 
 

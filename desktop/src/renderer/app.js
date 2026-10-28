@@ -7,6 +7,7 @@ import { buildHome, buildTools, buildModels, buildSettings } from './views.js';
 import { buildViewer } from './viewer.js';
 import { buildToolPage } from './toolpage.js';
 import { buildOcrPage } from './ocrpage.js';
+import { buildLlmPage } from './llmpage.js';
 import { runTool } from './ops.js';
 import { initPalette } from './palette.js';
 import { FALLBACK_CAPABILITIES } from './registry-fallback.js';
@@ -46,7 +47,7 @@ function handleTool(tool) {
 
 function openToolPage(tool) {
   const opts = { onBack: () => navigate(state.view), onOpenFile: openFile };
-  const builder = tool.id === 'ocr' ? buildOcrPage : buildToolPage;
+  const builder = tool.id === 'ocr' ? buildOcrPage : tool.id === 'summarize' ? buildLlmPage : buildToolPage;
   mount(builder(tool, opts), 'tool');
 }
 

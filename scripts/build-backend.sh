@@ -25,6 +25,8 @@ uv run --with pyinstaller pyinstaller \
   --collect-all pdfplumber \
   --collect-all pdfminer \
   --collect-all pypdf \
+  --collect-all pypdfium2 \
+  --collect-all llama_cpp \
   --hidden-import uvicorn.loops.auto \
   --hidden-import uvicorn.protocols.http.auto \
   --hidden-import uvicorn.protocols.websockets.auto \

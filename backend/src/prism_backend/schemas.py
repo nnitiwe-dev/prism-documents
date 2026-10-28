@@ -70,6 +70,21 @@ class OcrResult(BaseModel):
     pages_ocred: int = 0
 
 
+class ModelActionIn(BaseModel):
+    model_id: str
+
+
+class SummarizeIn(BaseModel):
+    input: str
+    model_id: str
+
+
+class SummarizeResult(BaseModel):
+    summary: str
+    model: str
+    truncated: bool = False
+
+
 class PdfInfo(BaseModel):
     path: str
     pages: int

@@ -1,8 +1,8 @@
 // View builders. Each returns a detached { element, destroy } the shell mounts.
 
-import { el, clear, icon } from './ui.js';
+import { el, clear, icon, toast } from './ui.js';
 import { getRecent, removeRecent, clearRecent } from './store.js';
-import { renderThumbnail } from './pdfjs.js';
+import { renderThumbnail, formatBytes } from './pdfjs.js';
 
 function toolCard(tool, onOpenTool) {
   const planned = tool.status === 'planned';
@@ -149,6 +149,43 @@ function capabilityIndex(h) {
   return 'Best with the lightest models';
 }
 
+function modelBadge(v) {
+  const lvl = v?.level;
+  if (lvl === 'comfortable') return el('span', { class: 'badge badge-green', text: 'Runs comfortably' });
+  if (lvl === 'lag') return el('span', { class: 'badge badge-amber', text: 'May lag' });
+  return el('span', { class: 'badge badge-red', text: 'Not recommended' });
+}
+
+function modelCard(m, refresh) {
+  let action;
+  if (m.installed) {
+    action = el('div', { class: 'engine-side' }, [
+      el('span', { class: 'badge badge-green', text: 'Installed' }),
+      el('button', { class: 'btn', text: 'Remove', onClick: async () => { await window.prism.api('/models/remove', { method: 'POST', body: { model_id: m.id } }); refresh(); } }),
+    ]);
+  } else if (m.downloading) {
+    const p = m.progress || {};
+    const pct = p.total ? Math.round((p.downloaded / p.total) * 100) : 0;
+    action = el('div', { class: 'dl-progress' }, [
+      el('div', { class: 'dl-bar' }, [el('div', { class: 'dl-fill', style: `width:${pct}%` })]),
+      el('span', { class: 'dl-pct', text: `${pct}%` }),
+    ]);
+  } else {
+    action = el('button', { class: 'btn primary', text: 'Download', onClick: async () => {
+      const r = await window.prism.api('/models/download', { method: 'POST', body: { model_id: m.id } });
+      if (r.ok) refresh(); else toast(r.error || 'Download failed', 'error');
+    } });
+  }
+  return el('div', { class: 'engine-card' }, [
+    el('div', { class: 'engine-main' }, [
+      el('div', { class: 'engine-top' }, [el('span', { class: 'engine-name', text: m.name }), modelBadge(m.verdict)]),
+      el('div', { class: 'engine-desc', text: m.note || '' }),
+      el('div', { class: 'engine-meta', text: `${formatBytes(m.size_bytes)} · ${m.license}${m.verdict?.reason ? ' · ' + m.verdict.reason : ''}` }),
+    ]),
+    action,
+  ]);
+}
+
 export function buildModels() {
   const gb = (b) => (b / 1024 ** 3).toFixed(1) + ' GB';
   const page = el('div', { class: 'page' });
@@ -161,8 +198,12 @@ export function buildModels() {
   page.appendChild(el('div', { class: 'section-bar' }, [el('h2', { text: 'Engines' })]));
   const enginesWrap = el('div', {});
   page.appendChild(enginesWrap);
+  page.appendChild(el('div', { class: 'section-bar' }, [el('h2', { text: 'Downloadable models' })]));
+  const modelsWrap = el('div', {}, [el('div', { class: 'empty', text: 'Loading models…' })]);
+  page.appendChild(modelsWrap);
 
   let cancelled = false;
+  let poll = null;
   Promise.all([window.prism.api('/system/hardware'), window.prism.api('/system/engines')]).then(([hw, eng]) => {
     if (cancelled) return;
 
@@ -206,7 +247,22 @@ export function buildModels() {
     }
   });
 
-  return { element: page, destroy: () => { cancelled = true; } };
+  async function renderModels() {
+    const r = await window.prism.api('/models');
+    if (cancelled) return;
+    clear(modelsWrap);
+    if (!r.ok) {
+      modelsWrap.appendChild(el('div', { class: 'empty', text: 'Could not load models.' }));
+      return;
+    }
+    for (const m of r.data.models) modelsWrap.appendChild(modelCard(m, renderModels));
+    const anyDownloading = r.data.models.some((m) => m.downloading);
+    if (anyDownloading && !poll) poll = setInterval(renderModels, 1500);
+    if (!anyDownloading && poll) { clearInterval(poll); poll = null; }
+  }
+  renderModels();
+
+  return { element: page, destroy: () => { cancelled = true; if (poll) clearInterval(poll); } };
 }
 
 export function buildSettings({ ready, version }) {
